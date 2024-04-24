@@ -28,13 +28,15 @@ exports.registerUser = catchAsyncErrors(async (req, res) => {
 		throw new ApiError(400, "All fields are required");
 	}
 
-	const avatar = req.files["avatar"][0].path;
-	const aadhar = req.files["aadhar"][0].path;
-	const pan = req.files["pan"][0].path;
+	const avatar = req.files["avatar"][0];
+	const aadhar = req.files["aadhar"][0];
+	const pan = req.files["pan"][0];
 
-	const uploadedAvatar = await uploadOnCloudinary(avatar);
-	const uploadedAadhar = await uploadOnCloudinary(aadhar);
-	const uploadedPan = await uploadOnCloudinary(pan);
+	const uploadedAvatar = await uploadOnCloudinary(avatar.path);
+	const uploadedAadhar = await uploadOnCloudinary(aadhar.path);
+	const uploadedPan = await uploadOnCloudinary(pan.path);
+
+	
 
 	console.log(uploadedAvatar);
 
