@@ -11,7 +11,6 @@ const fs = require("fs");
 
 const nodemailer = require("nodemailer");
 const { uploadOnCloudinary } = require("../utils/cloudinary.js");
-const { sendRegistrationMail } = require("../utils/emailjs.js");
 
 const transporter = nodemailer.createTransport({
 	service: "Gmail",
@@ -81,12 +80,12 @@ exports.registerUser = catchAsyncErrors(async (req, res) => {
 
 	user.referralCode = code;
 
-	const mail = {
-		name: user.firstName + " " + user.lastName,
-		email: user.email,
-	};
+	// const mail = {
+	// 	name: user.firstName + " " + user.lastName,
+	// 	email: user.email,
+	// };
 
-	await sendRegistrationMail(mail);
+	// await sendRegistrationMail(mail);
 
 	await user.save();
 
