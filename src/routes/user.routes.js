@@ -18,7 +18,6 @@ const {
 	sendMail,
 	activeUsers,
 	verifyUser,
-	getTeamMembers,
 	getAllUserBelow,
 } = require("../controllers/user.controller.js");
 const { authUser } = require("../middlewares/auth.middleware.js");
@@ -45,7 +44,7 @@ const path = require("path");
 
 const storage = multer.diskStorage({
 	destination: function (req, file, cb) {
-		cb(null, `/public/uploads`);
+		cb(null, `public/uploads`);
 	},
 	filename: function (req, file, cb) {
 		cb(null, file.fieldname + "-" + Date.now() + path.extname(file.originalname));
