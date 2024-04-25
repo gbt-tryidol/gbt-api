@@ -36,8 +36,6 @@ exports.registerUser = catchAsyncErrors(async (req, res) => {
 	const uploadedAadhar = await uploadOnCloudinary(aadhar.path);
 	const uploadedPan = await uploadOnCloudinary(pan.path);
 
-	
-
 	console.log(uploadedAvatar);
 
 	if (!uploadedAvatar) {
@@ -105,7 +103,7 @@ exports.loginUser = catchAsyncErrors(async (req, res) => {
 	}).select("+password");
 	// console.log(user);
 	if (!user) {
-		throw new ApiError(404, "Invalid user credentials");
+		throw new ApiError(401, "Invalid user credentials");
 	}
 
 	const isPasswordValid = await user.comparePassword(password);
