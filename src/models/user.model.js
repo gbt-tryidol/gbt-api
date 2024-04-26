@@ -220,6 +220,10 @@ const userSchema = new Schema(
 			enum: ["approved", "pending", "rejected"],
 			default: "pending",
 		},
+		track: {
+			code: String,
+			step: Number,
+		},
 	},
 	{ timestamps: true }
 );

@@ -67,6 +67,10 @@ exports.registerUser = catchAsyncErrors(async (req, res) => {
 		aadharCard: uploadedAadhar.url,
 		panCard: uploadedAadhar.url,
 		avatar: uploadedAvatar.url,
+		track: {
+			code: referralCode,
+			step: 1,
+		},
 	});
 
 	if (!user) {
@@ -465,6 +469,10 @@ exports.referralLinkAccess = catchAsyncErrors(async (req, res) => {
 	const userBeingReferred = await User.findById(req.user._id);
 	if (userBeingReferred) {
 		userBeingReferred.parent = owner._id;
+		userBeingReferred.track = {
+			code: userBeingReferred.track.code,
+			step: 3,
+		};
 		await userBeingReferred.save();
 	}
 	// console.log(owner.refers.length / 2 === 0);
