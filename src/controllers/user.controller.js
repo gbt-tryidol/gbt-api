@@ -36,10 +36,6 @@ exports.registerUser = catchAsyncErrors(async (req, res) => {
 	const uploadedAadhar = await uploadOnCloudinary(aadhar.path);
 	const uploadedPan = await uploadOnCloudinary(pan.path);
 
-	
-
-	console.log(uploadedAvatar);
-
 	if (!uploadedAvatar) {
 		throw new ApiError(400, "Avatar file is required");
 	}
@@ -83,6 +79,14 @@ exports.registerUser = catchAsyncErrors(async (req, res) => {
 	const code = await generateReferralCode(user._id.toString());
 
 	user.referralCode = code;
+
+	// const mail = {
+	// 	name: user.firstName + " " + user.lastName,
+	// 	email: user.email,
+	// };
+
+	// await sendRegistrationMail(mail);
+
 	await user.save();
 
 	const createdUser = await User.findById(user._id).select("-password");
@@ -105,7 +109,7 @@ exports.loginUser = catchAsyncErrors(async (req, res) => {
 	}).select("+password");
 	// console.log(user);
 	if (!user) {
-		throw new ApiError(404, "Invalid user credentials");
+		throw new ApiError(401, "Invalid user credentials");
 	}
 
 	const isPasswordValid = await user.comparePassword(password);
