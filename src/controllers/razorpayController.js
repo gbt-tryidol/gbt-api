@@ -110,14 +110,10 @@ const updatePlan = async (req, res, next) => {
 		// console.log("plan: " + plan);
 		// Update user plan
 		user.plan = plan;
-
-		const mailData = {
-			name: user.firstName + " " + user.lastName,
-			email: user.email,
+		user.track = {
+			code: user.track.code,
+			step: 2,
 		};
-
-		// await sendRegistrationConfirmation(mailData);
-
 		// Save the updated user
 		await user.save();
 

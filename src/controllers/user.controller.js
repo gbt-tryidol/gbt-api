@@ -67,6 +67,10 @@ exports.registerUser = catchAsyncErrors(async (req, res) => {
 		aadharCard: uploadedAadhar.url,
 		panCard: uploadedAadhar.url,
 		avatar: uploadedAvatar.url,
+		track: {
+			code: referralCode,
+			step: 1,
+		},
 	});
 
 	if (!user) {
@@ -465,6 +469,10 @@ exports.referralLinkAccess = catchAsyncErrors(async (req, res) => {
 	const userBeingReferred = await User.findById(req.user._id);
 	if (userBeingReferred) {
 		userBeingReferred.parent = owner._id;
+		userBeingReferred.track = {
+			code: userBeingReferred.track.code,
+			step: 3,
+		};
 		await userBeingReferred.save();
 	}
 	// console.log(owner.refers.length / 2 === 0);
@@ -637,18 +645,17 @@ async function updateUserActivityStatus() {
 exports.verifyUser = catchAsyncErrors(async (req, res) => {
 	const id = req.query.id;
 	const { status } = req.body;
-	console.log("*************************************************");
-	console.log(id, status);
 
 	const user = await User.findById(id);
 	if (!user) {
 		throw new ApiError(403, "User not found");
 	}
 
-	user.verified = status === true ? "approved" : "pending";
+	user.verified = status === true ? "approved" : "rejected";
 	await user.save();
+	console.log(status);
 	// Return the generated tree
-	res.status(200).json(new ApiResponse(200, null, "user" + status === true ? "approved" : "not approved"));
+	res.status(200).json(new ApiResponse(200, null, status === true ? "user approved" : "user not approved"));
 });
 
 // Run this function periodically using setInterval or a job scheduler

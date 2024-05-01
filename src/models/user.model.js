@@ -217,8 +217,12 @@ const userSchema = new Schema(
 		},
 		verified: {
 			type: String,
-			enum: ["approved", "pending"],
+			enum: ["approved", "pending", "rejected"],
 			default: "pending",
+		},
+		track: {
+			code: String,
+			step: Number,
 		},
 	},
 	{ timestamps: true }
