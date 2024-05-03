@@ -106,7 +106,7 @@ const userSchema = new Schema(
 		},
 		level: {
 			type: String,
-			default: "0		",
+			default: "0",
 		},
 		referralCode: {
 			type: String,
