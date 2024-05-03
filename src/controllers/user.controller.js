@@ -11,6 +11,7 @@ const fs = require("fs");
 
 const nodemailer = require("nodemailer");
 const { uploadOnCloudinary } = require("../utils/cloudinary.js");
+const MailSender = require("../utils/Nodemailer.js");
 
 const transporter = nodemailer.createTransport({
 	service: "Gmail",
@@ -165,6 +166,60 @@ exports.logoutUser = catchAsyncErrors(async (req, res) => {
 	res.status(200)
 		.cookie("token", null, { expires: new Date(Date.now()), httpOnly: true })
 		.json(new ApiResponse(200, "Logged Out Successfully"));
+});
+
+exports.forgotPassword = catchAsyncErrors(async (req, res) => {
+	console.log("Forgot Password");
+	const user = await User.findOne({ email: req.body.email });
+
+	if (!user) {
+		throw new ApiError(404, "User not found");
+	}
+
+	const resetPasswordToken = user?.getResetPasswordToken();
+	await user.save();
+
+	const resetUrl = `${req.protocol}://gbt-trust.vercel.app/reset/${resetPasswordToken}`;
+
+	const message = `
+	<h2>Dear ${user.firstName} ${user.lastName},</h2>
+	<p>We received a request to reset the password for your GBT account. If you did not initiate this request, you can safely ignore this email.</p>
+	<strong>
+	  To reset your password, click on the following link (or copy and paste it into your browser):
+	</strong>
+	<br>
+	<a href="${resetUrl}">${resetUrl}</a>
+	<br><br>
+	<p>This link will expire in 10 minutes, so please reset your password promptly.</p>
+	<p>If you are having trouble accessing the link, please ensure that you have copied the entire URL into your browser. If you continue to experience issues, please contact our support team at 911aaryan@gmail.com.</p>
+	<p>Thank You,</p>
+	<p>Team GBT - Ganpati Balaju Trust</p>
+   `;
+
+	let forgotMail = new MailSender(user.email, "GBT - Password Reset", message);
+	forgotMail.send();
+
+	res.status(200).json(new ApiResponse(201, resetUrl, `Password Reset email sent to ${user.email}`));
+});
+
+exports.resetPassword = catchAsyncErrors(async (req, res) => {
+	const resetPasswordToken = crypto.createHash("sha256").update(req.params.token).digest("hex");
+
+	const user = await User.findOne({
+		resetPasswordToken,
+		resetPasswordExpire: { $gt: Date.now() },
+	});
+
+	if (!user) {
+		throw new ApiError(403, "token is invalid or expired");
+	}
+
+	user.password = req.body.password;
+	user.resetPasswordToken = undefined;
+	user.resetPasswordExpire = undefined;
+	await user.save();
+
+	res.status(200).json(new ApiResponse(201, {}, "password reset successfully"));
 });
 
 exports.myProfile = catchAsyncErrors(async (req, res) => {

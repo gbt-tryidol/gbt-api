@@ -19,6 +19,8 @@ const {
 	activeUsers,
 	verifyUser,
 	getAllUserBelow,
+	forgotPassword,
+	resetPassword,
 } = require("../controllers/user.controller.js");
 const { authUser } = require("../middlewares/auth.middleware.js");
 
@@ -26,21 +28,6 @@ const { verifyRazorpayPayment, createRazorpayOrder, updatePlan } = require("../c
 
 const multer = require("multer");
 const path = require("path");
-
-// TODO: using multer during owner and admin photo upload
-// router.route("/register").post(
-// 	upload.fields([
-// 		{
-// 			name: "avatar",
-// 			maxCount: 1,
-// 		},
-// 		{
-// 			name: "coverImage",
-// 			maxCount: 1,
-// 		},
-// 	]),
-// 	registerUser
-// );
 
 const storage = multer.diskStorage({
 	destination: function (req, file, cb) {
@@ -56,6 +43,8 @@ const upload = multer({ storage: storage });
 // !! public routes --------------------------------
 router.route("/login").post(loginUser);
 router.route("/register").post(upload.fields([{ name: "avatar" }, { name: "aadhar" }, { name: "pan" }]), registerUser);
+router.route("/forgot").post(forgotPassword);
+router.route("/password/reset/:token").put(resetPassword);
 
 // !! secured routes --------------------------------
 router.route("/logout").post(authUser, logoutUser);
