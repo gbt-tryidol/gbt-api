@@ -102,7 +102,7 @@ const userSchema = new Schema(
 		},
 		rank: {
 			type: String,
-			default: "Joining",
+			default: "joining",
 		},
 		level: {
 			type: String,
