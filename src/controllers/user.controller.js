@@ -112,6 +112,37 @@ exports.registerUser = catchAsyncErrors(async (req, res) => {
 	return res.status(201).json(new ApiResponse(200, { createdUser, referralCode }, "User registered"));
 });
 
+exports.updateImages = catchAsyncErrors(async (req, res) => {
+	const user = await User.findById(req?.user?._id);
+	if (!user) {
+		fs.unlinkSync(`./public/uploads/${aadhar}`);
+		fs.unlinkSync(`./public/uploads/${pan}`);
+		fs.unlinkSync(`./public/uploads/${avatar}`);
+		throw new ApiError(409, "User with the same email or contact already exists");
+	}
+
+	const avatar = req?.files["avatar"][0];
+	const aadhar = req?.files["aadhar"][0];
+	const pan = req?.files["pan"][0];
+
+	if(avatar){
+		const uploadedAvatar = await updateOnCloudinary(avatar?.path, req?.user?.avatar);
+	user.avatar = uploadedAvatar.url;
+	}
+	if(aadhar){
+		const uploadedAadhar = await updateOnCloudinary(aadhar?.path, req?.user?.aadharCard);
+	user.aadharCard = uploadedAadhar.url;
+	}
+	if(pan){
+		const uploadedPan = await updateOnCloudinary(pan?.path, req?.user?.panCard);
+		user.panCard = uploadedPan.url;
+	}
+
+	await user.save();
+
+	return res.status(201).json(new ApiResponse(200, "User images Updated Successfully"));
+});
+
 // ?? Admin Login Handler
 exports.loginUser = catchAsyncErrors(async (req, res) => {
 	const { email, password } = req.body;

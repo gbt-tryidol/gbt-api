@@ -16,6 +16,7 @@ const {
 	updateProfile,
 	generateUserTree,
 	sendMail,
+	updateImages,
 	activeUsers,
 	verifyUser,
 	getAllUserBelow,
@@ -44,6 +45,7 @@ const upload = multer({ storage: storage });
 // !! public routes --------------------------------
 router.route("/login").post(loginUser);
 router.route("/register").post(upload.fields([{ name: "avatar" }, { name: "aadhar" }, { name: "pan" }]), registerUser);
+router.route("/update/images").post(upload.fields([{ name: "avatar" }, { name: "aadhar" }, { name: "pan" }]), updateImages);
 router.route("/forgot").post(forgotPassword);
 router.route("/password/reset/:token").put(resetPassword);
 
