@@ -84,9 +84,9 @@ exports.registerUser = catchAsyncErrors(async (req, res) => {
 	});
 
 	if (!user) {
-		// fs.unlinkSync(`./public/uploads/${aadhar}`);
-		// fs.unlinkSync(`./public/uploads/${pan}`);
-		// fs.unlinkSync(`./public/uploads/${avatar}`);
+		fs.unlinkSync(`./public/uploads/${aadhar}`);
+		fs.unlinkSync(`./public/uploads/${pan}`);
+		fs.unlinkSync(`./public/uploads/${avatar}`);
 		throw new ApiError(500, "Something went wrong while registering the user! Maybe an Internet Connection issue");
 	}
 
@@ -385,6 +385,30 @@ exports.getAllUserBelow = catchAsyncErrors(async (req, res) => {
 	const id = req.query.id || req.user._id;
 	const users = await fetchReferralUsers(id);
 
+	const rankMap = {
+		1: "JOINING",
+		2: "JOINING",
+		3: "JOINING",
+		4: "JOINING",
+		5: "JOINING",
+		6: "JOINING",
+		7: "JOINING",
+		8: "JOINING",
+		9: "JOINING",
+		10: "SILVER",
+		11: "GOLD",
+		12: "STARGOLD",
+		13: "PLATINUM",
+		14: "EMRALD",
+		15: "RUBI",
+		16: "DIAMOND",
+		17: "DOUBLE DIAMOND",
+		18: "STAR DIAMOND",
+		19: "CROWN",
+		20: "STAR CROWN",
+		21: "DOUBLE CROWN",
+	};
+
 	let level = 0;
 	const length = users.length - 1;
 	console.log(length);
@@ -437,6 +461,7 @@ exports.getAllUserBelow = catchAsyncErrors(async (req, res) => {
 	const currUser = await User.findById(req.user._id);
 	if (currUser.level.toString() !== level.toString() && currUser && currUser.role === "user") {
 		currUser.level = level.toString();
+		currUser.rank = rankMap[level];
 		await currUser.save();
 	}
 	if (!users.length) {
