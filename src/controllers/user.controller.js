@@ -549,112 +549,6 @@ exports.updateGroup = catchAsyncErrors(async (req, res) => {
 	return res.status(200).json(new ApiResponse(200, group, "Group Created Successfully"));
 });
 
-// ?? Referral Code GENERATOR
-//  TODO: Referral Code Generator USE #Frontend To generate Referral Code
-exports.referralCodeGenerate = catchAsyncErrors(async (req, res) => {
-	try {
-		if (req.user.referralCode !== undefined) {
-			return res.status(200).json(new ApiResponse(200, req.user.referralCode, "Referral code already generated"));
-		}
-		// console.log(req.user._id.toString());
-		const { _id } = req.user;
-		const userId = _id.toString();
-		// Generate a unique referral code
-		const referralCode = await generateReferralCode(userId);
-
-		// Update the user's record with the generated referral code
-		const updatedUser = await User.findByIdAndUpdate(userId, { referralCode }, { new: true });
-
-		if (!updatedUser) {
-			return res.status(404).json(new ApiResponse(404, null, "User not found"));
-		}
-
-		return res.status(200).json(new ApiResponse(200, updatedUser, "Referral code generated successfully"));
-	} catch (error) {
-		throw new ApiError(404, "Error generating referral code");
-	}
-});
-
-// ?? Referral Link GENERATOR
-exports.referralLinkGenerate = catchAsyncErrors(async (req, res) => {
-	const { referralCode } = req.user;
-	try {
-		if (!req.user) {
-			throw new ApiError(404, "User not found");
-		}
-		req.user.referralUrl = `${getBaseUrl(req)}/referral/generated-link/:referralCode=${referralCode}`;
-		await req.user.save();
-
-		// Redirect to home page or any other page after processing the referral
-		return res.status(200).json(new ApiResponse(200, req.user.referralUrl, "Referral link generated successfully"));
-	} catch (error) {
-		console.error("Error processing referral:", error);
-		return res.status(500).json({ error: "Internal Server Error" });
-	}
-});
-
-exports.referralLinkAccess = catchAsyncErrors(async (req, res) => {
-	const referralCode = req?.params?.referralCode.split("=")[1];
-	if (!referralCode) {
-		throw new ApiError(404, "Referral code not found");
-	}
-	const owner = await User.findOne({ referralCode });
-	console.log(owner);
-	if (!owner) {
-		throw new ApiError(404, "Owner not found");
-	}
-	if (owner.verified !== "approved") {
-		throw new ApiError(404, "user is not approved");
-	}
-
-	if (owner._id === req.user._id) {
-		throw new ApiError(404, "User cannot refer itself");
-	}
-
-	if (owner.refers.includes(req.user._id)) {
-		throw new ApiError(401, "Referral link already accessed");
-	}
-
-	owner.refers.push(req.user._id);
-	await owner.save();
-	// Add parent reference to the user being referred
-	const userBeingReferred = await User.findById(req.user._id);
-	if (userBeingReferred) {
-		userBeingReferred.parent = owner._id;
-		userBeingReferred.track = {
-			code: userBeingReferred.track.code,
-			step: 2,
-		};
-		await userBeingReferred.save();
-	}
-	// console.log(owner.refers.length / 2 === 0);
-	if (owner.refers.length % 2 === 0) {
-		// Add referral bonus to owner's account
-		const referralBonus = 300;
-		owner.referralIncome += 300;
-		owner.balance += 300;
-		owner.totalBonus += 300;
-
-		await owner.save();
-		let parent = owner.parent;
-		let bonusToParent = referralBonus / 2;
-		while (parent) {
-			const parentUser = await User.findById(parent);
-			if (parentUser) {
-				parentUser.balance += bonusToParent;
-				parentUser.totalBonus += bonusToParent;
-				parentUser.referralIncome += bonusToParent;
-				await parentUser.save();
-			}
-			parent = parentUser.parent;
-			bonusToParent /= 2; // Halve the bonus for the next parent
-		}
-	}
-
-	// Redirect to home page or any other page after processing the referral
-	return res.status(200).json(new ApiResponse(200, owner, "Referral link accessed successfully"));
-});
-
 // ?? Epin Generator Handler
 exports.epinGenerator = catchAsyncErrors(async (req, res) => {
 	try {
@@ -819,3 +713,109 @@ exports.verifyUser = catchAsyncErrors(async (req, res) => {
 setInterval(updateUserActivityStatus, 1000 * 60 * 1); // Check in every 1/2 hrs
 
 // 192.168.93.164
+
+// ?? Referral Code GENERATOR
+//  TODO: Referral Code Generator USE #Frontend To generate Referral Code
+exports.referralCodeGenerate = catchAsyncErrors(async (req, res) => {
+	try {
+		if (req.user.referralCode !== undefined) {
+			return res.status(200).json(new ApiResponse(200, req.user.referralCode, "Referral code already generated"));
+		}
+		// console.log(req.user._id.toString());
+		const { _id } = req.user;
+		const userId = _id.toString();
+		// Generate a unique referral code
+		const referralCode = await generateReferralCode(userId);
+
+		// Update the user's record with the generated referral code
+		const updatedUser = await User.findByIdAndUpdate(userId, { referralCode }, { new: true });
+
+		if (!updatedUser) {
+			return res.status(404).json(new ApiResponse(404, null, "User not found"));
+		}
+
+		return res.status(200).json(new ApiResponse(200, updatedUser, "Referral code generated successfully"));
+	} catch (error) {
+		throw new ApiError(404, "Error generating referral code");
+	}
+});
+
+// ?? Referral Link GENERATOR
+exports.referralLinkGenerate = catchAsyncErrors(async (req, res) => {
+	const { referralCode } = req.user;
+	try {
+		if (!req.user) {
+			throw new ApiError(404, "User not found");
+		}
+		req.user.referralUrl = `${getBaseUrl(req)}/referral/generated-link/:referralCode=${referralCode}`;
+		await req.user.save();
+
+		// Redirect to home page or any other page after processing the referral
+		return res.status(200).json(new ApiResponse(200, req.user.referralUrl, "Referral link generated successfully"));
+	} catch (error) {
+		console.error("Error processing referral:", error);
+		return res.status(500).json({ error: "Internal Server Error" });
+	}
+});
+
+exports.referralLinkAccess = catchAsyncErrors(async (req, res) => {
+	const referralCode = req?.params?.referralCode.split("=")[1];
+	if (!referralCode) {
+		throw new ApiError(404, "Referral code not found");
+	}
+	const owner = await User.findOne({ referralCode });
+	console.log(owner);
+	if (!owner) {
+		throw new ApiError(404, "Owner not found");
+	}
+	if (owner.verified !== "approved") {
+		throw new ApiError(404, "user is not approved");
+	}
+
+	if (owner._id === req.user._id) {
+		throw new ApiError(404, "User cannot refer itself");
+	}
+
+	if (owner.refers.includes(req.user._id)) {
+		throw new ApiError(401, "Referral link already accessed");
+	}
+
+	owner.refers.push(req.user._id);
+	await owner.save();
+	// Add parent reference to the user being referred
+	const userBeingReferred = await User.findById(req.user._id);
+	if (userBeingReferred) {
+		userBeingReferred.parent = owner._id;
+		userBeingReferred.track = {
+			code: userBeingReferred.track.code,
+			step: 2,
+		};
+		await userBeingReferred.save();
+	}
+	// console.log(owner.refers.length / 2 === 0);
+	if (owner.refers.length % 2 === 0) {
+		// Add referral bonus to owner's account
+		const referralBonus = 300;
+		owner.referralIncome += 300;
+		owner.balance += 300;
+		owner.totalBonus += 300;
+
+		await owner.save();
+		let parent = owner.parent;
+		let bonusToParent = referralBonus / 2;
+		while (parent) {
+			const parentUser = await User.findById(parent);
+			if (parentUser) {
+				parentUser.balance += bonusToParent;
+				parentUser.totalBonus += bonusToParent;
+				parentUser.referralIncome += bonusToParent;
+				await parentUser.save();
+			}
+			parent = parentUser.parent;
+			bonusToParent /= 2; // Halve the bonus for the next parent
+		}
+	}
+
+	// Redirect to home page or any other page after processing the referral
+	return res.status(200).json(new ApiResponse(200, owner, "Referral link accessed successfully"));
+});
