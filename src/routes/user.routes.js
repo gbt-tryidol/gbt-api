@@ -21,6 +21,7 @@ const {
 	getAllUserBelow,
 	forgotPassword,
 	resetPassword,
+	trackUser,
 } = require("../controllers/user.controller.js");
 const { authUser } = require("../middlewares/auth.middleware.js");
 
@@ -50,6 +51,7 @@ router.route("/password/reset/:token").put(resetPassword);
 router.route("/logout").post(authUser, logoutUser);
 router.route("/me").get(authUser, myProfile);
 router.route("/single/user").get(authUser, singleUser);
+router.route("/track/user").get(authUser, trackUser);
 router.route("/allusers").get(authUser, allUsers);
 router.route("/update/user").post(authUser, updateProfile);
 router.route("/team/newgroup").post(authUser, newGroup);

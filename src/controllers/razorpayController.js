@@ -5,7 +5,7 @@ const { ApiError } = require("../utils/ApiError.js");
 const { ApiResponse } = require("../utils/ApiResponse.js");
 const { catchAsyncErrors } = require("../middlewares/catchAsyncErrors.js");
 const User = require("../models/user.model.js");
-const { sendRegistrationConfirmation } = require("../utils/Nodemailer.js");
+// const { sendRegistrationConfirmation } = require("../utils/Nodemailer.js");
 require("dotenv").config();
 
 const instance = new Razorpay({
@@ -48,16 +48,15 @@ const createRazorpayOrder = async (req, res, next) => {
 
 const verifyRazorpayPayment = async (req, res, next) => {
 	try {
-		const { order_id, payment_id } = req.body;
+		const { payment_id } = req.body;
 
 		// Make a request to the Razorpay API to verify the payment
 		instance.payments.capture(payment_id, 650 * 100, "INR", (err, response) => {
-			// console.log(response);
+			console.log(response);
 			if (err) {
-				console.log(1);
-				console.error("Error verifying Razorpay payment:", err);
+				// console.error("Error verifying Razorpay payment:", err);
 				if (err.error.description == "This payment has already been captured") {
-					sendRegistrationConfirmation(req, res, next);
+					// sendRegistrationConfirmation(req, res, next);
 					res.status(200).json({ success: true, message: "Payment already captured" });
 				}
 				res.status(200).json({ success: true, message: "Payment verification failed" });
@@ -66,8 +65,6 @@ const verifyRazorpayPayment = async (req, res, next) => {
 				if (response.status === "captured") {
 					// Payment is successful
 					// You can update your database or perform other necessary actions here
-					console.log(req.body.email);
-					sendRegistrationConfirmation(req, res, next);
 					res.status(200).json({ success: true, message: "Payment verified successfully" });
 				} else {
 					// Payment failed
@@ -110,10 +107,6 @@ const updatePlan = async (req, res, next) => {
 		// console.log("plan: " + plan);
 		// Update user plan
 		user.plan = plan;
-		user.track = {
-			code: user.track.code,
-			step: 2,
-		};
 		// Save the updated user
 		await user.save();
 

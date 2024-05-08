@@ -28,14 +28,23 @@ exports.registerUser = catchAsyncErrors(async (req, res) => {
 	if (!firstName || !lastName || !email || !contact || !city || !postalCode || !state || !password) {
 		throw new ApiError(400, "All fields are required");
 	}
+	if (req.files["avatar"] === undefined) {
+		throw new ApiError(400, "Avatar file is required");
+	}
+	if (req.files["aadhar"] === undefined) {
+		throw new ApiError(400, "Aadhar file is required");
+	}
+	if (req.files["pan"] === undefined) {
+		throw new ApiError(400, "Pan file is required");
+	}
 
-	const avatar = req.files["avatar"][0];
-	const aadhar = req.files["aadhar"][0];
-	const pan = req.files["pan"][0];
+	const avatar = req?.files["avatar"][0];
+	const aadhar = req?.files["aadhar"][0];
+	const pan = req?.files["pan"][0];
 
-	const uploadedAvatar = await uploadOnCloudinary(avatar.path);
-	const uploadedAadhar = await uploadOnCloudinary(aadhar.path);
-	const uploadedPan = await uploadOnCloudinary(pan.path);
+	const uploadedAvatar = await uploadOnCloudinary(avatar?.path);
+	const uploadedAadhar = await uploadOnCloudinary(aadhar?.path);
+	const uploadedPan = await uploadOnCloudinary(pan?.path);
 
 	if (!uploadedAvatar) {
 		throw new ApiError(400, "Avatar file is required");
@@ -310,6 +319,16 @@ exports.getTeamMembers = catchAsyncErrors(async (req, res) => {
 	res.status(200).json(new ApiResponse(200, { success: true, teams: teams.refers }));
 });
 
+// ?? Track user
+exports.trackUser = catchAsyncErrors(async (req, res) => {
+	const user = await User.findOne({ email: req.query.email }).populate("parent");
+	if (!user) {
+		throw new ApiError(404, "user not found");
+	}
+
+	res.status(200).json(new ApiResponse(200, user.track));
+});
+
 // ?? Team Rising Star Handler
 exports.risingStars = catchAsyncErrors(async (req, res) => {
 	const users = await User.find({ role: "user" }).sort({ referralIncome: -1 }).limit(10);
@@ -366,10 +385,63 @@ exports.getAllUserBelow = catchAsyncErrors(async (req, res) => {
 	const id = req.query.id || req.user._id;
 	const users = await fetchReferralUsers(id);
 
+	let level = 0;
+	const length = users.length - 1;
+	console.log(length);
+	if (length >= 1 && length <= 1) {
+		level = 0;
+	} else if (length >= 2 && length <= 5) {
+		level = 1;
+	} else if (length >= 6 && length <= 13) {
+		level = 2;
+	} else if (length >= 14 && length <= 29) {
+		level = 3;
+	} else if (length >= 30 && length <= 61) {
+		level = 4;
+	} else if (length >= 62 && length <= 125) {
+		level = 5;
+	} else if (length >= 126 && length <= 253) {
+		level = 6;
+	} else if (length >= 254 && length <= 509) {
+		level = 7;
+	} else if (length >= 510 && length <= 1021) {
+		level = 8;
+	} else if (length >= 1022 && length <= 2045) {
+		level = 9;
+	} else if (length >= 2046 && length <= 4093) {
+		level = 10;
+	} else if (length >= 4094 && length <= 8189) {
+		level = 11;
+	} else if (length >= 8190 && length <= 16381) {
+		level = 12;
+	} else if (length >= 16382 && length <= 32765) {
+		level = 13;
+	} else if (length >= 32766 && length <= 65533) {
+		level = 14;
+	} else if (length >= 65534 && length <= 131069) {
+		level = 15;
+	} else if (length >= 131070 && length <= 262141) {
+		level = 16;
+	} else if (length >= 262142 && length <= 524285) {
+		level = 17;
+	} else if (length >= 524286 && length <= 1048573) {
+		level = 18;
+	} else if (length >= 1048574 && length <= 2097153) {
+		level = 19;
+	} else if (length >= 2097154 && length <= 4194309) {
+		level = 20;
+	} else if (length >= 4194310) {
+		level = 21;
+	}
+
+	const currUser = await User.findById(req.user._id);
+	if (currUser.level.toString() !== level.toString() && currUser && currUser.role === "user") {
+		currUser.level = level.toString();
+		await currUser.save();
+	}
 	if (!users.length) {
 		throw new ApiError(404, "No referred users found");
 	}
-
 	return res.status(200).json(new ApiResponse(200, users, "Referred Users Details"));
 });
 
@@ -526,7 +598,7 @@ exports.referralLinkAccess = catchAsyncErrors(async (req, res) => {
 		userBeingReferred.parent = owner._id;
 		userBeingReferred.track = {
 			code: userBeingReferred.track.code,
-			step: 3,
+			step: 2,
 		};
 		await userBeingReferred.save();
 	}
@@ -707,6 +779,10 @@ exports.verifyUser = catchAsyncErrors(async (req, res) => {
 	}
 
 	user.verified = status === true ? "approved" : "rejected";
+	user.track = {
+		code: user.track.code,
+		step: 3,
+	};
 	await user.save();
 	console.log(status);
 	// Return the generated tree
