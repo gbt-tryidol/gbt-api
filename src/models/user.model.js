@@ -165,13 +165,9 @@ const userSchema = new Schema(
 		epinManager: {
 			transferId: {
 				type: String,
-				// required: [true, "Transfer Id is required"],
-				// unique: true,
 			},
 			epin: {
 				type: [String],
-				// required: [true, "Epin is required"],
-				// unique: true,
 			},
 			isRedeem: {
 				type: Boolean,
@@ -231,11 +227,21 @@ const userSchema = new Schema(
 	{ timestamps: true }
 );
 
+const generateRandomCode = () => {
+	const length = 3; // Adjust the length of the random code as needed
+	const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+	let code = '';
+	for (let i = 0; i < length; i++) {
+		code += characters.charAt(Math.floor(Math.random() * characters.length));
+	}
+	return code;
+};
+
 userSchema.pre("save", async function (next) {
 	if (this.isNew) {
-		const lastUser = await User.findOne({}, {}, { sort: { userId: -1 } });
-		this.userId = new Date().toString().split("T")[0] + this.name;
+		this.userId = 'GBT' + generateRandomCode();
 	}
+
 	if (!this.isModified("password")) return next();
 
 	this.password = await bcrypt.hash(this.password, 10);

@@ -27,4 +27,31 @@ const uploadOnCloudinary = async (localFilePath) => {
 	}
 };
 
+const updateOnCloudinary = async (localFilePath, previousPublicId = null) => {
+    try {
+        if (!localFilePath) return null;
+
+        // Upload the new file to Cloudinary
+        const newResponse = await cloudinary.uploader.upload(localFilePath, {
+            resource_type: "auto",
+        });
+
+        // If there was a previously saved image, destroy it on Cloudinary
+        if (previousPublicId) {
+            await cloudinary.uploader.destroy(previousPublicId);
+        }
+
+        // Remove the locally saved temporary file
+        fs.unlinkSync(localFilePath);
+
+        return newResponse;
+    } catch (error) {
+        console.error("Error updating image on Cloudinary:", error);
+
+        // Remove the locally saved temporary file as the upload operation failed
+        fs.unlinkSync(localFilePath);
+
+        return null;
+    }
+};
 module.exports = { uploadOnCloudinary };
