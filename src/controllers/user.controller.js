@@ -23,93 +23,97 @@ const transporter = nodemailer.createTransport({
 
 // ?? Admin Register Handler
 exports.registerUser = catchAsyncErrors(async (req, res) => {
-	const { firstName, lastName, email, contact, city, postalCode, state, password, role, referralCode } = req.body;
+	try {
+		const { firstName, lastName, email, contact, city, postalCode, state, password, role, referralCode } = req.body;
 
-	if (!firstName || !lastName || !email || !contact || !city || !postalCode || !state || !password) {
-		throw new ApiError(400, "All fields are required");
+		if (!firstName || !lastName || !email || !contact || !city || !postalCode || !state || !password) {
+			throw new ApiError(400, "All fields are required");
+		}
+		if (req.files["avatar"] === undefined) {
+			throw new ApiError(400, "Avatar file is required");
+		}
+		if (req.files["aadhar"] === undefined) {
+			throw new ApiError(400, "Aadhar file is required");
+		}
+		if (req.files["pan"] === undefined) {
+			throw new ApiError(400, "Pan file is required");
+		}
+
+		const avatar = req?.files["avatar"][0];
+		const aadhar = req?.files["aadhar"][0];
+		const pan = req?.files["pan"][0];
+
+		const uploadedAvatar = await uploadOnCloudinary(avatar?.path);
+		const uploadedAadhar = await uploadOnCloudinary(aadhar?.path);
+		const uploadedPan = await uploadOnCloudinary(pan?.path);
+		console.log(uploadedAvatar, uploadedAadhar, uploadedPan);
+		if (!uploadedAvatar) {
+			throw new ApiError(400, "Avatar file is required");
+		}
+		if (!uploadedAadhar) {
+			throw new ApiError(400, "Aadhar Card is required");
+		}
+		if (!uploadedPan) {
+			throw new ApiError(400, "Pan Card is required");
+		}
+
+		const existedUser = await User.findOne({
+			$or: [{ email }, { contact }],
+		});
+
+		if (existedUser) {
+			throw new ApiError(409, "User with the same email or contact already exists");
+		}
+
+		const user = await User.create({
+			firstName,
+			lastName,
+			email,
+			contact,
+			password,
+			role: role || "user",
+			city,
+			postalCode,
+			state: state,
+			aadharCard: uploadedAadhar.url,
+			panCard: uploadedPan.url,
+			avatar: uploadedAvatar.url,
+			track: {
+				code: referralCode,
+				step: 1,
+			},
+		});
+
+		if (!user) {
+			fs.unlinkSync(`./public/uploads/${aadhar}`);
+			fs.unlinkSync(`./public/uploads/${pan}`);
+			fs.unlinkSync(`./public/uploads/${avatar}`);
+			throw new ApiError(500, "Something went wrong while registering the user! Maybe an Internet Connection issue");
+		}
+
+		const code = await generateReferralCode(user._id.toString());
+
+		user.referralCode = code;
+
+		// const mail = {
+		// 	name: user.firstName + " " + user.lastName,
+		// 	email: user.email,
+		// };
+
+		// await sendRegistrationMail(mail);
+
+		await user.save();
+
+		const createdUser = await User.findById(user._id).select("-password");
+
+		if (!createdUser) {
+			throw new ApiError(500, "Something went wrong while registering the user! Maybe an Internet Connection issue");
+		}
+
+		return res.status(201).json(new ApiResponse(200, { createdUser, referralCode }, "User registered"));
+	} catch (error) {
+		console.log(error);
 	}
-	if (req.files["avatar"] === undefined) {
-		throw new ApiError(400, "Avatar file is required");
-	}
-	if (req.files["aadhar"] === undefined) {
-		throw new ApiError(400, "Aadhar file is required");
-	}
-	if (req.files["pan"] === undefined) {
-		throw new ApiError(400, "Pan file is required");
-	}
-
-	const avatar = req?.files["avatar"][0];
-	const aadhar = req?.files["aadhar"][0];
-	const pan = req?.files["pan"][0];
-
-	const uploadedAvatar = await uploadOnCloudinary(avatar?.path);
-	const uploadedAadhar = await uploadOnCloudinary(aadhar?.path);
-	const uploadedPan = await uploadOnCloudinary(pan?.path);
-
-	if (!uploadedAvatar) {
-		throw new ApiError(400, "Avatar file is required");
-	}
-	if (!uploadedAadhar) {
-		throw new ApiError(400, "Aadhar Card is required");
-	}
-	if (!uploadedPan) {
-		throw new ApiError(400, "Pan Card is required");
-	}
-
-	const existedUser = await User.findOne({
-		$or: [{ email }, { contact }],
-	});
-
-	if (existedUser) {
-		throw new ApiError(409, "User with the same email or contact already exists");
-	}
-
-	const user = await User.create({
-		firstName,
-		lastName,
-		email,
-		contact,
-		password,
-		role: role || "user",
-		city,
-		postalCode,
-		state: state,
-		aadharCard: uploadedAadhar.url,
-		panCard: uploadedAadhar.url,
-		avatar: uploadedAvatar.url,
-		track: {
-			code: referralCode,
-			step: 1,
-		},
-	});
-
-	if (!user) {
-		fs.unlinkSync(`./public/uploads/${aadhar}`);
-		fs.unlinkSync(`./public/uploads/${pan}`);
-		fs.unlinkSync(`./public/uploads/${avatar}`);
-		throw new ApiError(500, "Something went wrong while registering the user! Maybe an Internet Connection issue");
-	}
-
-	const code = await generateReferralCode(user._id.toString());
-
-	user.referralCode = code;
-
-	// const mail = {
-	// 	name: user.firstName + " " + user.lastName,
-	// 	email: user.email,
-	// };
-
-	// await sendRegistrationMail(mail);
-
-	await user.save();
-
-	const createdUser = await User.findById(user._id).select("-password");
-
-	if (!createdUser) {
-		throw new ApiError(500, "Something went wrong while registering the user! Maybe an Internet Connection issue");
-	}
-
-	return res.status(201).json(new ApiResponse(200, { createdUser, referralCode }, "User registered"));
 });
 
 // ?? Admin Login Handler
@@ -702,10 +706,11 @@ exports.verifyUser = catchAsyncErrors(async (req, res) => {
 		code: user.track.code,
 		step: 3,
 	};
-	await user.save();
-	console.log(status);
+	const savedUser = await user.save();
 	// Return the generated tree
-	res.status(200).json(new ApiResponse(200, null, status === true ? "user approved" : "user not approved"));
+	res.status(200).json(
+		new ApiResponse(200, { referralCode: savedUser.track.code, userid: savedUser._id }, status === true ? "user approved" : "user not approved")
+	);
 });
 
 // Run this function periodically using setInterval or a job scheduler
@@ -715,7 +720,6 @@ setInterval(updateUserActivityStatus, 1000 * 60 * 1); // Check in every 1/2 hrs
 // 192.168.93.164
 
 // ?? Referral Code GENERATOR
-//  TODO: Referral Code Generator USE #Frontend To generate Referral Code
 exports.referralCodeGenerate = catchAsyncErrors(async (req, res) => {
 	try {
 		if (req.user.referralCode !== undefined) {
@@ -758,13 +762,12 @@ exports.referralLinkGenerate = catchAsyncErrors(async (req, res) => {
 	}
 });
 
-exports.referralLinkAccess = catchAsyncErrors(async (req, res) => {
+exports.updateTrack = catchAsyncErrors(async (req, res) => {
 	const referralCode = req?.params?.referralCode.split("=")[1];
 	if (!referralCode) {
 		throw new ApiError(404, "Referral code not found");
 	}
 	const owner = await User.findOne({ referralCode });
-	console.log(owner);
 	if (!owner) {
 		throw new ApiError(404, "Owner not found");
 	}
@@ -780,19 +783,57 @@ exports.referralLinkAccess = catchAsyncErrors(async (req, res) => {
 		throw new ApiError(401, "Referral link already accessed");
 	}
 
-	owner.refers.push(req.user._id);
-	await owner.save();
-	// Add parent reference to the user being referred
+	if (!owner.parent || owner.parent === null) {
+		throw new ApiError(401, "Referral link already accessed");
+	}
+
 	const userBeingReferred = await User.findById(req.user._id);
 	if (userBeingReferred) {
-		userBeingReferred.parent = owner._id;
 		userBeingReferred.track = {
 			code: userBeingReferred.track.code,
 			step: 2,
 		};
 		await userBeingReferred.save();
 	}
-	// console.log(owner.refers.length / 2 === 0);
+
+	return res.status(200).json(new ApiResponse(200, owner, "Referral link accessed successfully"));
+});
+
+exports.referralLinkAccess = catchAsyncErrors(async (req, res) => {
+	const referralCode = req?.params?.referralCode.split("=")[1];
+	if (!referralCode) {
+		throw new ApiError(404, "Referral code not found");
+	}
+	const owner = await User.findOne({ referralCode });
+	if (!owner) {
+		throw new ApiError(404, "Owner not found");
+	}
+	if (owner.verified !== "approved") {
+		throw new ApiError(404, "user is not approved");
+	}
+
+	if (owner._id === req.user._id) {
+		throw new ApiError(404, "User cannot refer itself");
+	}
+
+	if (owner.refers.includes(req.user._id)) {
+		throw new ApiError(401, "Referral link already accessed");
+	}
+
+	const userBeingReferred = await User.findById(req.query.userid);
+	if (userBeingReferred.parent !== undefined) {
+		throw new ApiError(401, "Referral link already accessed");
+	}
+
+	owner.refers.push(req.query.userid);
+	await owner.save();
+	// Add parent reference to the user being referred
+
+	if (userBeingReferred) {
+		userBeingReferred.parent = owner._id;
+
+		await userBeingReferred.save();
+	}
 	if (owner.refers.length % 2 === 0) {
 		// Add referral bonus to owner's account
 		const referralBonus = 300;
@@ -819,3 +860,74 @@ exports.referralLinkAccess = catchAsyncErrors(async (req, res) => {
 	// Redirect to home page or any other page after processing the referral
 	return res.status(200).json(new ApiResponse(200, owner, "Referral link accessed successfully"));
 });
+
+// ??!! Calculating referrral amout
+
+exports.calculateReferral = catchAsyncErrors(async (req, res) => {
+	// console.log("hii");
+	// const referralAmount = 1;
+	const referralAmount = await calculateMoney(req.user._id);
+	console.log("amount = ", referralAmount);
+
+	return res.status(200).json(new ApiResponse(200, referralAmount, "Referral link accessed successfully"));
+});
+
+const calculatMoney = async (id, amount = 0) => {
+	const user = await User.findById(id);
+	if (!user) {
+		return 0;
+	}
+	const left = user.refers.slice(user.refers.length / 2);
+	const right = user.refers.splice(user.refers.length / 2, user.refers.length);
+
+	console.log("hiiiefhbj");
+	console.log(left);
+	console.log(right);
+	if (user.refers.length <= 0) {
+		return 0;
+	}
+
+	let arr = [];
+
+	// Process each referral
+	for (const refer of user.refers) {
+		const value = await calculateMoney(refer, 0);
+		arr.push(value);
+	}
+
+	// Create a Map to store unique values and their counts
+	const valueMap = new Map();
+	for (const value of arr) {
+		if (valueMap.has(value)) {
+			valueMap.set(value, valueMap.get(value) + 1);
+		} else {
+			valueMap.set(value, 1);
+		}
+	}
+	console.log(valueMap);
+
+	let sum = 0;
+
+	for (const [key, count] of valueMap) {
+		const pairs = Math.floor(count / 2);
+		sum += key + pairs;
+	}
+	console.log(sum);
+	return sum;
+};
+
+const calculateMoney = async (id) => {
+	const user = await User.findById(id).populate("refers");
+	if (user.refers.length <= 1) {
+		return 0;
+	}
+
+	let arr = [];
+	for (const _refer of user.refers) {
+		const value = await calculateMoney(_refer);
+		arr.push(value);
+	}
+
+	const map = new Map();
+	// map.set("refers", arr);
+};

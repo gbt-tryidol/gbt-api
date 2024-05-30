@@ -5,6 +5,7 @@ const { ApiError } = require("../utils/ApiError.js");
 const { ApiResponse } = require("../utils/ApiResponse.js");
 const { catchAsyncErrors } = require("../middlewares/catchAsyncErrors.js");
 const User = require("../models/user.model.js");
+const { updateStatement } = require("./statement.controller.js");
 // const { sendRegistrationConfirmation } = require("../utils/Nodemailer.js");
 require("dotenv").config();
 
@@ -109,6 +110,12 @@ const updatePlan = async (req, res, next) => {
 		user.plan = plan;
 		// Save the updated user
 		await user.save();
+
+		try {
+			await updateStatement(user._id);
+		} catch (error) {
+			console.error(error);
+		}
 
 		return res.status(200).json({ success: true, message: "Plan updated successfully." });
 	} catch (error) {

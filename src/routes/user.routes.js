@@ -10,6 +10,8 @@ const {
 	newGroup,
 	epinGenerator,
 	referralLinkGenerate,
+	updateTrack,
+	calculateReferral,
 	referralCodeGenerate,
 	referralLinkAccess,
 	myProfile,
@@ -60,6 +62,8 @@ router.route("/epin/generate").post(authUser, epinGenerator);
 router.route("/referral/generate-code").post(authUser, referralCodeGenerate);
 router.route("/referral/generate-link").post(authUser, referralLinkGenerate);
 router.route("/referral/generated-link/:referralCode").get(authUser, referralLinkAccess);
+router.route("/calculate/referral").get(authUser, calculateReferral);
+router.route("/track/generated-link/:referralCode").get(authUser, updateTrack);
 router.route("/update-plan").post(authUser, updatePlan);
 router.route("/rz/payment-verify").post(authUser, verifyRazorpayPayment);
 router.route("/rz/create-order").post(authUser, createRazorpayOrder);

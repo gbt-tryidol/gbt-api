@@ -234,11 +234,7 @@ const userSchema = new Schema(
 userSchema.pre("save", async function (next) {
 	if (this.isNew) {
 		const lastUser = await User.findOne({}, {}, { sort: { userId: -1 } });
-		if (lastUser) {
-			this.userId = Number(lastUser.userId) + 1;
-		} else {
-			this.userId = 1;
-		}
+		this.userId = new Date().toString().split("T")[0] + this.name;
 	}
 	if (!this.isModified("password")) return next();
 
