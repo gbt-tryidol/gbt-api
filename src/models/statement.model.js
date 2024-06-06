@@ -18,11 +18,18 @@ const statementSchema = new Schema(
 			type: Number,
 			required: [true, "Event Budget is required"],
 		},
-        user:{
-            type: Schema.Types.ObjectId,
-            ref: "user",
-        },
-        
+		award: {
+			type: String,
+		},
+		type: {
+			type: String,
+			enum: ["credited", "debited"],
+			required: [true, "Transaction type is required"],
+		},
+		user: {
+			type: Schema.Types.ObjectId,
+			ref: "user",
+		},
 	},
 	{ timestamps: true }
 );
