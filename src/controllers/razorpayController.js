@@ -83,10 +83,6 @@ const updatePlan = async (req, res, next) => {
 	try {
 		const { plan } = req.body;
 		const userId = req.user._id;
-		// console.log("***************************************************************");
-		// console.log(plan, userId);
-		// console.log("***************************************************************");
-		// Validation
 		if (!plan || !userId) {
 			return res.status(400).json({ success: false, message: "Missing required fields." });
 		}
@@ -104,9 +100,6 @@ const updatePlan = async (req, res, next) => {
 		if (!validPlans.includes(plan)) {
 			return res.status(400).json({ success: false, message: "Invalid plan." });
 		}
-		// console.log("****************************************************");
-		// console.log("plan: " + plan);
-		// Update user plan
 		user.plan = plan;
 		// Save the updated user
 		await user.save();
@@ -125,7 +118,7 @@ const updatePlan = async (req, res, next) => {
 };
 
 const transferToBank = catchAsyncErrors(async (req, res) => {
-	const { accountNumber, ifscCode, accountHolderName, amount, bankName, purpose } = req.body;
+	const { accountNumber, ifscCode, accountHolderName, amount, bankName } = req.body;
 	const payload = {
 		account: {
 			account_number: accountNumber,
