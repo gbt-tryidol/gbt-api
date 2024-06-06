@@ -60,10 +60,11 @@ exports.registerUser = catchAsyncErrors(async (req, res) => {
 		const existedUser = await User.findOne({
 			$or: [{ email }, { contact }],
 		});
-
+		console.log(existedUser);
 		if (existedUser) {
-			throw new ApiError(409, "User with the same email or contact already exists");
+			return res.status(404).json({ message: "user already exists" });
 		}
+		console.log(374477);
 
 		const user = await User.create({
 			firstName,
@@ -129,15 +130,15 @@ exports.updateImages = catchAsyncErrors(async (req, res) => {
 	const aadhar = req?.files["aadhar"][0];
 	const pan = req?.files["pan"][0];
 
-	if(avatar){
+	if (avatar) {
 		const uploadedAvatar = await updateOnCloudinary(avatar?.path, req?.user?.avatar);
-	user.avatar = uploadedAvatar.url;
+		user.avatar = uploadedAvatar.url;
 	}
-	if(aadhar){
+	if (aadhar) {
 		const uploadedAadhar = await updateOnCloudinary(aadhar?.path, req?.user?.aadharCard);
-	user.aadharCard = uploadedAadhar.url;
+		user.aadharCard = uploadedAadhar.url;
 	}
-	if(pan){
+	if (pan) {
 		const uploadedPan = await updateOnCloudinary(pan?.path, req?.user?.panCard);
 		user.panCard = uploadedPan.url;
 	}
@@ -897,54 +898,65 @@ exports.referralLinkAccess = catchAsyncErrors(async (req, res) => {
 exports.calculateReferral = catchAsyncErrors(async (req, res) => {
 	// console.log("hii");
 	// const referralAmount = 1;
-	const referralAmount = await calculateMoney(req.user._id);
+	const referralAmount = (await calculateMoney(req.user._id)) * 300;
+	const user = await User.findById(req.user._id);
+	user.referralIncome = referralAmount;
 	console.log("amount = ", referralAmount);
 
 	return res.status(200).json(new ApiResponse(200, referralAmount, "Referral link accessed successfully"));
 });
 
-const calculatMoney = async (id, amount = 0) => {
-	const user = await User.findById(id);
-	if (!user) {
-		return 0;
-	}
-	const left = user.refers.slice(user.refers.length / 2);
-	const right = user.refers.splice(user.refers.length / 2, user.refers.length);
+exports.calculateLevel = catchAsyncErrors(async (req, res) => {
+	const leveldata = await calculateLevels(req.user._id);
+	console.log("level = ", leveldata);
+	const user = await User.findById(req.user._id);
+	user.level = leveldata;
+	return res.status(200).json(new ApiResponse(200, leveldata, "Referral link accessed successfully"));
+});
 
-	console.log("hiiiefhbj");
-	console.log(left);
-	console.log(right);
-	if (user.refers.length <= 0) {
+const calculateLevels = async (id) => {
+	const user = await User.findById(id).populate("refers");
+	if (user.refers.length <= 1) {
 		return 0;
 	}
 
 	let arr = [];
-
-	// Process each referral
-	for (const refer of user.refers) {
-		const value = await calculateMoney(refer, 0);
+	for (const _refer of user.refers) {
+		const value = await calculateMoney(_refer);
 		arr.push(value);
 	}
 
-	// Create a Map to store unique values and their counts
-	const valueMap = new Map();
-	for (const value of arr) {
-		if (valueMap.has(value)) {
-			valueMap.set(value, valueMap.get(value) + 1);
+	const map = new Map();
+	for (const val of arr) {
+		if (map.has(val)) {
+			map.set(val, map.get(val) + 1);
 		} else {
-			valueMap.set(value, 1);
+			map.set(val, 1);
 		}
 	}
-	console.log(valueMap);
 
+	// console.log(map);
 	let sum = 0;
-
-	for (const [key, count] of valueMap) {
-		const pairs = Math.floor(count / 2);
-		sum += key + pairs;
+	let level = 0;
+	let left = -1;
+	for (const [key, count] of map) {
+		if (count % 2 === 1) {
+			if (left == -1 && key !== 0) {
+				left = key;
+			} else if (left > key && key !== 0) {
+				left = key;
+			}
+		}
+		if (Math.floor(count / 2) !== 0) {
+			sum += key + Math.floor(count / 2);
+			level++;
+		}
 	}
-	console.log(sum);
-	return sum;
+	sum += left + 1;
+	if (left !== -1) {
+		level++;
+	}
+	return level;
 };
 
 const calculateMoney = async (id) => {
@@ -960,5 +972,30 @@ const calculateMoney = async (id) => {
 	}
 
 	const map = new Map();
+	for (const val of arr) {
+		if (map.has(val)) {
+			map.set(val, map.get(val) + 1);
+		} else {
+			map.set(val, 1);
+		}
+	}
+
+	// console.log(map);
+	let sum = 0;
+	let left = -1;
+	for (const [key, count] of map) {
+		if (count % 2 === 1) {
+			if (left == -1 && key !== 0) {
+				left = key;
+			} else if (left > key && key !== 0) {
+				left = key;
+			}
+		}
+		if (Math.floor(count / 2) !== 0) {
+			sum += key + Math.floor(count / 2);
+		}
+	}
+	sum += left + 1;
+	return sum;
 	// map.set("refers", arr);
 };
