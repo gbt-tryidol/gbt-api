@@ -25,6 +25,7 @@ const {
 	forgotPassword,
 	resetPassword,
 	trackUser,
+	calculateLevel,
 } = require("../controllers/user.controller.js");
 const { authUser } = require("../middlewares/auth.middleware.js");
 
@@ -65,6 +66,7 @@ router.route("/referral/generate-code").post(authUser, referralCodeGenerate);
 router.route("/referral/generate-link").post(authUser, referralLinkGenerate);
 router.route("/referral/generated-link/:referralCode").get(authUser, referralLinkAccess);
 router.route("/calculate/referral").get(authUser, calculateReferral);
+router.route("/calculate/level").get(authUser, calculateLevel);
 router.route("/track/generated-link/:referralCode").get(authUser, updateTrack);
 router.route("/update-plan").post(authUser, updatePlan);
 router.route("/rz/payment-verify").post(authUser, verifyRazorpayPayment);
