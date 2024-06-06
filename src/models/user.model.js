@@ -139,6 +139,10 @@ const userSchema = new Schema(
 			type: Number,
 			default: 0,
 		},
+		amountWithdrawn: {
+			type: Number,
+			default: 0,
+		},
 		balance: {
 			type: Number,
 			default: 0,
@@ -161,27 +165,6 @@ const userSchema = new Schema(
 		epinUser: {
 			type: Schema.Types.ObjectId,
 			ref: "epin",
-		},
-		epinManager: {
-			transferId: {
-				type: String,
-			},
-			epin: {
-				type: [String],
-			},
-			isRedeem: {
-				type: Boolean,
-				default: false,
-			},
-			status: {
-				type: String,
-				enum: ["allocated", "notAllocated"],
-				default: "notAllocated",
-			},
-		},
-		totalEpin: {
-			type: Number,
-			default: 0,
 		},
 		currentBalance: {
 			type: Number,
@@ -229,8 +212,8 @@ const userSchema = new Schema(
 
 const generateRandomCode = () => {
 	const length = 3; // Adjust the length of the random code as needed
-	const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-	let code = '';
+	const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+	let code = "";
 	for (let i = 0; i < length; i++) {
 		code += characters.charAt(Math.floor(Math.random() * characters.length));
 	}
@@ -239,7 +222,7 @@ const generateRandomCode = () => {
 
 userSchema.pre("save", async function (next) {
 	if (this.isNew) {
-		this.userId = 'GBT' + generateRandomCode();
+		this.userId = "GBT" + generateRandomCode();
 	}
 
 	if (!this.isModified("password")) return next();
