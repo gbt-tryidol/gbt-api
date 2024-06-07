@@ -37,15 +37,27 @@ const transferSchema = new Schema(
 		upi: {
 			type: String,
 		},
+		transactionId: {
+			type: String,
+		},
 		amount: {
 			type: Number,
-			required: [true, "Amount is required"],
+		},
+		award: {
+			type: String,
+		},
+		type: {
+			type: String,
+			enum: ["cash", "award"],
+			default: "cash",
 		},
 		status: {
 			type: String,
 			default: "pending",
 			enum: ["pending", "accepted", "rejected"],
 		},
+		purpose: String,
+		address: String,
 	},
 	{ timestamps: true }
 );

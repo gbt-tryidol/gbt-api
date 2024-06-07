@@ -10,7 +10,7 @@ const crypto = require("crypto");
 const fs = require("fs");
 
 const nodemailer = require("nodemailer");
-const { uploadOnCloudinary } = require("../utils/cloudinary.js");
+const { uploadOnCloudinary, updateOnCloudinary } = require("../utils/cloudinary.js");
 const MailSender = require("../utils/Nodemailer.js");
 
 const transporter = nodemailer.createTransport({
@@ -29,13 +29,13 @@ exports.registerUser = catchAsyncErrors(async (req, res) => {
 		throw new ApiError(400, "All fields are required");
 	}
 	if (req.files["avatar"] === undefined) {
-		throw new ApiError(400, "Avatar file is required");
+		throw new ApiError(404, "Avatar file is required");
 	}
 	if (req.files["aadhar"] === undefined) {
-		throw new ApiError(400, "Aadhar file is required");
+		throw new ApiError(404, "Aadhar file is required");
 	}
 	if (req.files["pan"] === undefined) {
-		throw new ApiError(400, "Pan file is required");
+		throw new ApiError(404, "Pan file is required");
 	}
 
 	const avatar = req?.files["avatar"][0];
@@ -45,24 +45,25 @@ exports.registerUser = catchAsyncErrors(async (req, res) => {
 	const uploadedAvatar = await uploadOnCloudinary(avatar?.path);
 	const uploadedAadhar = await uploadOnCloudinary(aadhar?.path);
 	const uploadedPan = await uploadOnCloudinary(pan?.path);
-
+	console.log(uploadedAvatar, uploadedAadhar, uploadedPan);
 	if (!uploadedAvatar) {
-		throw new ApiError(400, "Avatar file is required");
+		return res.status(404).json({ message: "avatar is required" });
 	}
 	if (!uploadedAadhar) {
-		throw new ApiError(400, "Aadhar Card is required");
+		return res.status(404).json({ message: "aadhar is required" });
 	}
 	if (!uploadedPan) {
-		throw new ApiError(400, "Pan Card is required");
+		return res.status(404).json({ message: "pan card is required" });
 	}
 
 	const existedUser = await User.findOne({
 		$or: [{ email }, { contact }],
 	});
-
+	console.log(existedUser);
 	if (existedUser) {
-		throw new ApiError(409, "User with the same email or contact already exists");
+		return res.status(404).json({ message: "user already exists" });
 	}
+	console.log(374477);
 
 	const user = await User.create({
 		firstName,
@@ -75,7 +76,7 @@ exports.registerUser = catchAsyncErrors(async (req, res) => {
 		postalCode,
 		state: state,
 		aadharCard: uploadedAadhar.url,
-		panCard: uploadedAadhar.url,
+		panCard: uploadedPan.url,
 		avatar: uploadedAvatar.url,
 		track: {
 			code: referralCode,
@@ -113,27 +114,27 @@ exports.registerUser = catchAsyncErrors(async (req, res) => {
 });
 
 exports.updateImages = catchAsyncErrors(async (req, res) => {
-	const user = await User.findById(req?.user?._id);
+	const user = await User.findById(req.user._id);
 	if (!user) {
-		fs.unlinkSync(`./public/uploads/${aadhar}`);
-		fs.unlinkSync(`./public/uploads/${pan}`);
-		fs.unlinkSync(`./public/uploads/${avatar}`);
-		throw new ApiError(409, "User with the same email or contact already exists");
+		if (req?.files?.aadhar) fs.unlinkSync(req?.files?.aadhar[0]?.path);
+		if (req?.files?.pan) fs.unlinkSync(req?.files?.pan[0]?.path);
+		if (req?.files?.avatar) fs.unlinkSync(req?.files?.avatar[0]?.path);
+		throw new ApiError(409, "user not find");
 	}
-
+	console.log(req.files);
 	const avatar = req?.files["avatar"][0];
 	const aadhar = req?.files["aadhar"][0];
 	const pan = req?.files["pan"][0];
 
-	if(avatar){
+	if (avatar) {
 		const uploadedAvatar = await updateOnCloudinary(avatar?.path, req?.user?.avatar);
-	user.avatar = uploadedAvatar.url;
+		user.avatar = uploadedAvatar.url;
 	}
-	if(aadhar){
+	if (aadhar) {
 		const uploadedAadhar = await updateOnCloudinary(aadhar?.path, req?.user?.aadharCard);
-	user.aadharCard = uploadedAadhar.url;
+		user.aadharCard = uploadedAadhar.url;
 	}
-	if(pan){
+	if (pan) {
 		const uploadedPan = await updateOnCloudinary(pan?.path, req?.user?.panCard);
 		user.panCard = uploadedPan.url;
 	}
@@ -580,112 +581,6 @@ exports.updateGroup = catchAsyncErrors(async (req, res) => {
 	return res.status(200).json(new ApiResponse(200, group, "Group Created Successfully"));
 });
 
-// ?? Referral Code GENERATOR
-//  TODO: Referral Code Generator USE #Frontend To generate Referral Code
-exports.referralCodeGenerate = catchAsyncErrors(async (req, res) => {
-	try {
-		if (req.user.referralCode !== undefined) {
-			return res.status(200).json(new ApiResponse(200, req.user.referralCode, "Referral code already generated"));
-		}
-		// console.log(req.user._id.toString());
-		const { _id } = req.user;
-		const userId = _id.toString();
-		// Generate a unique referral code
-		const referralCode = await generateReferralCode(userId);
-
-		// Update the user's record with the generated referral code
-		const updatedUser = await User.findByIdAndUpdate(userId, { referralCode }, { new: true });
-
-		if (!updatedUser) {
-			return res.status(404).json(new ApiResponse(404, null, "User not found"));
-		}
-
-		return res.status(200).json(new ApiResponse(200, updatedUser, "Referral code generated successfully"));
-	} catch (error) {
-		throw new ApiError(404, "Error generating referral code");
-	}
-});
-
-// ?? Referral Link GENERATOR
-exports.referralLinkGenerate = catchAsyncErrors(async (req, res) => {
-	const { referralCode } = req.user;
-	try {
-		if (!req.user) {
-			throw new ApiError(404, "User not found");
-		}
-		req.user.referralUrl = `${getBaseUrl(req)}/referral/generated-link/:referralCode=${referralCode}`;
-		await req.user.save();
-
-		// Redirect to home page or any other page after processing the referral
-		return res.status(200).json(new ApiResponse(200, req.user.referralUrl, "Referral link generated successfully"));
-	} catch (error) {
-		console.error("Error processing referral:", error);
-		return res.status(500).json({ error: "Internal Server Error" });
-	}
-});
-
-exports.referralLinkAccess = catchAsyncErrors(async (req, res) => {
-	const referralCode = req?.params?.referralCode.split("=")[1];
-	if (!referralCode) {
-		throw new ApiError(404, "Referral code not found");
-	}
-	const owner = await User.findOne({ referralCode });
-	console.log(owner);
-	if (!owner) {
-		throw new ApiError(404, "Owner not found");
-	}
-	if (owner.verified !== "approved") {
-		throw new ApiError(404, "user is not approved");
-	}
-
-	if (owner._id === req.user._id) {
-		throw new ApiError(404, "User cannot refer itself");
-	}
-
-	if (owner.refers.includes(req.user._id)) {
-		throw new ApiError(401, "Referral link already accessed");
-	}
-
-	owner.refers.push(req.user._id);
-	await owner.save();
-	// Add parent reference to the user being referred
-	const userBeingReferred = await User.findById(req.user._id);
-	if (userBeingReferred) {
-		userBeingReferred.parent = owner._id;
-		userBeingReferred.track = {
-			code: userBeingReferred.track.code,
-			step: 2,
-		};
-		await userBeingReferred.save();
-	}
-	// console.log(owner.refers.length / 2 === 0);
-	if (owner.refers.length % 2 === 0) {
-		// Add referral bonus to owner's account
-		const referralBonus = 300;
-		owner.referralIncome += 300;
-		owner.balance += 300;
-		owner.totalBonus += 300;
-
-		await owner.save();
-		let parent = owner.parent;
-		let bonusToParent = referralBonus / 2;
-		while (parent) {
-			const parentUser = await User.findById(parent);
-			if (parentUser) {
-				parentUser.balance += bonusToParent;
-				parentUser.totalBonus += bonusToParent;
-				parentUser.referralIncome += bonusToParent;
-				await parentUser.save();
-			}
-			parent = parentUser.parent;
-			bonusToParent /= 2; // Halve the bonus for the next parent
-		}
-	}
-
-	// Redirect to home page or any other page after processing the referral
-	return res.status(200).json(new ApiResponse(200, owner, "Referral link accessed successfully"));
-});
-
 // ?? Epin Generator Handler
 exports.epinGenerator = catchAsyncErrors(async (req, res) => {
 	try {
@@ -839,10 +734,11 @@ exports.verifyUser = catchAsyncErrors(async (req, res) => {
 		code: user.track.code,
 		step: 3,
 	};
-	await user.save();
-	console.log(status);
+	const savedUser = await user.save();
 	// Return the generated tree
-	res.status(200).json(new ApiResponse(200, null, status === true ? "user approved" : "user not approved"));
+	res.status(200).json(
+		new ApiResponse(200, { referralCode: savedUser.track.code, userid: savedUser._id }, status === true ? "user approved" : "user not approved")
+	);
 });
 
 // Run this function periodically using setInterval or a job scheduler
@@ -850,3 +746,252 @@ exports.verifyUser = catchAsyncErrors(async (req, res) => {
 setInterval(updateUserActivityStatus, 1000 * 60 * 1); // Check in every 1/2 hrs
 
 // 192.168.93.164
+
+// ?? Referral Code GENERATOR
+exports.referralCodeGenerate = catchAsyncErrors(async (req, res) => {
+	try {
+		if (req.user.referralCode !== undefined) {
+			return res.status(200).json(new ApiResponse(200, req.user.referralCode, "Referral code already generated"));
+		}
+		// console.log(req.user._id.toString());
+		const { _id } = req.user;
+		const userId = _id.toString();
+		// Generate a unique referral code
+		const referralCode = await generateReferralCode(userId);
+
+		// Update the user's record with the generated referral code
+		const updatedUser = await User.findByIdAndUpdate(userId, { referralCode }, { new: true });
+
+		if (!updatedUser) {
+			return res.status(404).json(new ApiResponse(404, null, "User not found"));
+		}
+
+		return res.status(200).json(new ApiResponse(200, updatedUser, "Referral code generated successfully"));
+	} catch (error) {
+		throw new ApiError(404, "Error generating referral code");
+	}
+});
+
+// ?? Referral Link GENERATOR
+exports.referralLinkGenerate = catchAsyncErrors(async (req, res) => {
+	const { referralCode } = req.user;
+	try {
+		if (!req.user) {
+			throw new ApiError(404, "User not found");
+		}
+		req.user.referralUrl = `${getBaseUrl(req)}/referral/generated-link/:referralCode=${referralCode}`;
+		await req.user.save();
+
+		// Redirect to home page or any other page after processing the referral
+		return res.status(200).json(new ApiResponse(200, req.user.referralUrl, "Referral link generated successfully"));
+	} catch (error) {
+		console.error("Error processing referral:", error);
+		return res.status(500).json({ error: "Internal Server Error" });
+	}
+});
+
+exports.updateTrack = catchAsyncErrors(async (req, res) => {
+	const referralCode = req?.params?.referralCode.split("=")[1];
+	if (!referralCode) {
+		throw new ApiError(404, "Referral code not found");
+	}
+	const owner = await User.findOne({ referralCode });
+	if (!owner) {
+		throw new ApiError(404, "Owner not found");
+	}
+	if (owner.verified !== "approved") {
+		throw new ApiError(404, "user is not approved");
+	}
+
+	if (owner._id === req.user._id) {
+		throw new ApiError(404, "User cannot refer itself");
+	}
+
+	if (owner.refers.includes(req.user._id)) {
+		throw new ApiError(401, "Referral link already accessed");
+	}
+
+	if (!owner.parent || owner.parent === null) {
+		throw new ApiError(401, "Referral link already accessed");
+	}
+
+	const userBeingReferred = await User.findById(req.user._id);
+	if (userBeingReferred) {
+		userBeingReferred.track = {
+			code: userBeingReferred.track.code,
+			step: 2,
+		};
+		await userBeingReferred.save();
+	}
+
+	return res.status(200).json(new ApiResponse(200, owner, "Referral link accessed successfully"));
+});
+
+exports.referralLinkAccess = catchAsyncErrors(async (req, res) => {
+	const referralCode = req?.params?.referralCode.split("=")[1];
+	if (!referralCode) {
+		throw new ApiError(404, "Referral code not found");
+	}
+	const owner = await User.findOne({ referralCode });
+	if (!owner) {
+		throw new ApiError(404, "Owner not found");
+	}
+	if (owner.verified !== "approved") {
+		throw new ApiError(404, "user is not approved");
+	}
+
+	if (owner._id === req.user._id) {
+		throw new ApiError(404, "User cannot refer itself");
+	}
+
+	if (owner.refers.includes(req.user._id)) {
+		throw new ApiError(401, "Referral link already accessed");
+	}
+
+	const userBeingReferred = await User.findById(req.query.userid);
+	if (userBeingReferred.parent !== undefined) {
+		throw new ApiError(401, "Referral link already accessed");
+	}
+
+	owner.refers.push(req.query.userid);
+	await owner.save();
+	// Add parent reference to the user being referred
+
+	if (userBeingReferred) {
+		userBeingReferred.parent = owner._id;
+
+		await userBeingReferred.save();
+	}
+	if (owner.refers.length % 2 === 0) {
+		// Add referral bonus to owner's account
+		const referralBonus = 300;
+		owner.referralIncome += 300;
+		owner.balance += 300;
+		owner.totalBonus += 300;
+
+		await owner.save();
+		let parent = owner.parent;
+		let bonusToParent = referralBonus / 2;
+		while (parent) {
+			const parentUser = await User.findById(parent);
+			if (parentUser) {
+				parentUser.balance += bonusToParent;
+				parentUser.totalBonus += bonusToParent;
+				parentUser.referralIncome += bonusToParent;
+				await parentUser.save();
+			}
+			parent = parentUser.parent;
+			bonusToParent /= 2; // Halve the bonus for the next parent
+		}
+	}
+
+	// Redirect to home page or any other page after processing the referral
+	return res.status(200).json(new ApiResponse(200, owner, "Referral link accessed successfully"));
+});
+
+// ??!! Calculating referrral amout
+
+exports.calculateReferral = catchAsyncErrors(async (req, res) => {
+	// console.log("hii");
+	// const referralAmount = 1;
+	const referralAmount = (await calculateMoney(req.user._id)) * 300;
+	const user = await User.findById(req.user._id);
+	user.referralIncome = referralAmount;
+	console.log("amount = ", referralAmount);
+
+	return res.status(200).json(new ApiResponse(200, referralAmount, "Referral link accessed successfully"));
+});
+
+exports.calculateLevel = catchAsyncErrors(async (req, res) => {
+	const leveldata = await calculateLevels(req.user._id);
+	console.log("level = ", leveldata);
+	const user = await User.findById(req.user._id);
+	user.level = leveldata;
+	return res.status(200).json(new ApiResponse(200, leveldata, "Referral link accessed successfully"));
+});
+
+const calculateLevels = async (id) => {
+	const user = await User.findById(id).populate("refers");
+	if (user.refers.length <= 1) {
+		return 0;
+	}
+
+	let arr = [];
+	for (const _refer of user.refers) {
+		const value = await calculateMoney(_refer);
+		arr.push(value);
+	}
+
+	const map = new Map();
+	for (const val of arr) {
+		if (map.has(val)) {
+			map.set(val, map.get(val) + 1);
+		} else {
+			map.set(val, 1);
+		}
+	}
+
+	// console.log(map);
+	let sum = 0;
+	let level = 0;
+	let left = -1;
+	for (const [key, count] of map) {
+		if (count % 2 === 1) {
+			if (left == -1 && key !== 0) {
+				left = key;
+			} else if (left > key && key !== 0) {
+				left = key;
+			}
+		}
+		if (Math.floor(count / 2) !== 0) {
+			sum += key + Math.floor(count / 2);
+			level++;
+		}
+	}
+	sum += left + 1;
+	if (left !== -1) {
+		level++;
+	}
+	return level;
+};
+
+const calculateMoney = async (id) => {
+	const user = await User.findById(id).populate("refers");
+	if (user.refers.length <= 1) {
+		return 0;
+	}
+
+	let arr = [];
+	for (const _refer of user.refers) {
+		const value = await calculateMoney(_refer);
+		arr.push(value);
+	}
+
+	const map = new Map();
+	for (const val of arr) {
+		if (map.has(val)) {
+			map.set(val, map.get(val) + 1);
+		} else {
+			map.set(val, 1);
+		}
+	}
+
+	// console.log(map);
+	let sum = 0;
+	let left = -1;
+	for (const [key, count] of map) {
+		if (count % 2 === 1) {
+			if (left == -1 && key !== 0) {
+				left = key;
+			} else if (left > key && key !== 0) {
+				left = key;
+			}
+		}
+		if (Math.floor(count / 2) !== 0) {
+			sum += key + Math.floor(count / 2);
+		}
+	}
+	sum += left + 1;
+	return sum;
+	// map.set("refers", arr);
+};

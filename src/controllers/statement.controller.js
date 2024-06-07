@@ -1,46 +1,74 @@
-const User = require("../models/user.model.js");
+// const User = require("../models/user.model.js");
 const Statement = require("../models/statement.model.js");
+const User = require("../models/user.model.js");
+const { ApiError } = require("../utils/ApiError.js");
+const { ApiResponse } = require("../utils/ApiResponse.js");
+const { catchAsyncErrors } = require("../middlewares/catchAsyncErrors.js");
 
-let lastInvoiceNumber = 0;
-exports.generateStatement = catchAsyncErrors(async (req, res) => {    
-	
-    const user = User.findById(req.user.id);
+exports.updateStatement = catchAsyncErrors(async (userid) => {
+	const statement = await Statement.create({
+		orderId: "ID-" + generateRandomCode() + new Date().getTime(),
+		amount: 580,
+		type: "credited",
+		user: userid,
+		details: "580 Recieved from User Registration",
+		user: userid,
+	});
+	if (!statement) {
+		throw new ApiError(404, "Statement not created");
+	}
+});
 
-    if (!user) {
-        throw new ApiError(404, "User not found");
-    }
-    
-    try {
-        // Generate new invoice ID
-        lastInvoiceNumber++;
-        const newId = 'INV-' + String('000' + lastInvoiceNumber).slice(-3);
-        
-        const statement = await Statement.create({
-            user: user._id,
-            details: req.body.details,
-            amount: req.body.amount,
-            orderId: newId,
-        });
-    } catch (err) {
-        res.status(500).json({ message: err.message });
-    }
+const generateRandomCode = () => {
+	const length = 5; // Adjust the length of the random code as needed
+	const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+	let code = "";
+	for (let i = 0; i < length; i++) {
+		code += characters.charAt(Math.floor(Math.random() * characters.length));
+	}
+	return code;
+};
 
-    
+exports.updateUserStatement = catchAsyncErrors(async (userid, amount, transferId, username) => {
+	const statement = await Statement.create({
+		orderId: "ID-" + generateRandomCode() + new Date().getTime(),
+		amount,
+		type: "debited",
+		user: userid,
+		details: `${amount} withdrwan by ${username}`,
+		transfer: transferId,
+		user: userid,
+	});
+	if (!statement) {
+		throw new ApiError(404, "Statement not created");
+	}
+});
 
-    const newId = 'INV-' + String('000' + lastInvoiceNumber).slice(-3);
-    if (!statement) {
-        const newStatement = await Statement.create({
-            user: userId,
-            details,
-            amount,
-            orderId: uuidv4(),
-        });
-        if (!newStatement) {
-            throw new ApiError(500, "Something went wrong");
-        }
+exports.updateAwardStatement = catchAsyncErrors(async (userid, amount, data) => {
+	console.log("username = ", data.transfer);
+	const user = await User.findById(userid);
+	if (!user) {
+		throw new ApiError(404, "No user found");
+	}
+	const statement = await Statement.create({
+		orderId: "ID-" + generateRandomCode() + new Date().getTime(),
+		amount,
+		award: data.award,
+		type: "debited",
+		user: userid,
+		details: `${user.firstName} ${user.lastName} is awarded ${data.award}`,
+		transfer: data.transfer._id,
+	});
 
-        res.status(201).json(new ApiResponse(201, newStatement, "Success"));
-    } else {
-        res.status(200).json(new ApiResponse(200, statement, "Success"));
-    }
+	if (!statement) {
+		throw new ApiError(404, "Statement not created");
+	}
+});
+
+exports.getStatements = catchAsyncErrors(async (req, res) => {
+	const statements = await Statement.find().populate("user transfer");
+	if (!statements || statements.length === 0) {
+		throw new ApiError(404, "Statement not found");
+	}
+	return res.status(200).json(new ApiResponse(200, statements, "statement found successfully"));
 });

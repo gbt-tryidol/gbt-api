@@ -10,6 +10,8 @@ const {
 	newGroup,
 	epinGenerator,
 	referralLinkGenerate,
+	updateTrack,
+	calculateReferral,
 	referralCodeGenerate,
 	referralLinkAccess,
 	myProfile,
@@ -23,6 +25,7 @@ const {
 	forgotPassword,
 	resetPassword,
 	trackUser,
+	calculateLevel,
 } = require("../controllers/user.controller.js");
 const { authUser } = require("../middlewares/auth.middleware.js");
 
@@ -45,7 +48,7 @@ const upload = multer({ storage: storage });
 // !! public routes --------------------------------
 router.route("/login").post(loginUser);
 router.route("/register").post(upload.fields([{ name: "avatar" }, { name: "aadhar" }, { name: "pan" }]), registerUser);
-router.route("/update/images").post(upload.fields([{ name: "avatar" }, { name: "aadhar" }, { name: "pan" }]), updateImages);
+router.route("/update/images").post(authUser, upload.fields([{ name: "avatar" }, { name: "aadhar" }, { name: "pan" }]), updateImages);
 router.route("/forgot").post(forgotPassword);
 router.route("/password/reset/:token").put(resetPassword);
 
@@ -62,6 +65,9 @@ router.route("/epin/generate").post(authUser, epinGenerator);
 router.route("/referral/generate-code").post(authUser, referralCodeGenerate);
 router.route("/referral/generate-link").post(authUser, referralLinkGenerate);
 router.route("/referral/generated-link/:referralCode").get(authUser, referralLinkAccess);
+router.route("/calculate/referral").get(authUser, calculateReferral);
+router.route("/calculate/level").get(authUser, calculateLevel);
+router.route("/track/generated-link/:referralCode").get(authUser, updateTrack);
 router.route("/update-plan").post(authUser, updatePlan);
 router.route("/rz/payment-verify").post(authUser, verifyRazorpayPayment);
 router.route("/rz/create-order").post(authUser, createRazorpayOrder);

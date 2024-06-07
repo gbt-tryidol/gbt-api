@@ -4,12 +4,14 @@ const { catchAsyncErrors } = require("../middlewares/catchAsyncErrors.js");
 const Transfer = require("../models/transfer.model.js");
 const User = require("../models/user.model.js");
 const Bank = require("../models/bank.model.js");
+const { updateUserStatement, updateAwardStatement } = require("./statement.controller.js");
 
 // ?? Admin Register Handler
-exports.requestTransfer = catchAsyncErrors(async (req, res) => {
-	const { accountNumber, ifscCode, accountHolderName, amount, bankName, purpose, accountType, upi } = req.body;
+exports.requestAwardTransfer = catchAsyncErrors(async (req, res) => {
+	const { address, purpose, award, accountNumber, ifscCode, accountHolderName, amount, bankName, accountType, upi } = req.body;
+	console.log(address, purpose, award, accountNumber, ifscCode, accountHolderName, amount, bankName, accountType, upi);
 
-	if (!accountNumber && !ifscCode && !accountHolderName && !amount && !bankName && !purpose && !accountType) {
+	if (!address || !purpose || !accountNumber || !ifscCode || !accountHolderName || !bankName || !accountType || !upi) {
 		throw new ApiError(301, "All Fields are Required");
 	}
 
@@ -33,9 +35,50 @@ exports.requestTransfer = catchAsyncErrors(async (req, res) => {
 
 	const transfer = await Transfer.create({
 		user: userId,
+		award: award,
+		purpose: purpose,
+		address: address,
+		amount: amount,
+		type: "award",
+		upi,
+	});
+
+	return res.status(201).json(new ApiResponse(200, transfer, "Withdrawal Request Initiated"));
+});
+
+exports.requestTransfer = catchAsyncErrors(async (req, res) => {
+	const { accountNumber, ifscCode, accountHolderName, amount, bankName, purpose, accountType, upi } = req.body;
+
+	if (!accountNumber && !ifscCode && !accountHolderName && !amount && !bankName && !purpose && !accountType) {
+		throw new ApiError(301, "All Fields are Required");
+	}
+
+	const userId = req.user._id;
+
+	const isBankDetailsExist = await Bank.findOne({ user: userId });
+
+	if (!isBankDetailsExist) {
+		const bank = await Bank.create({
+			user: userId,
+			accountNumber,
+			accountHolderName,
+			ifscCode,
+			accountType,
+			purpose,
+			bankName,
+		});
+		if (!bank) {
+			throw new ApiError(501, "Error while creating bank account");
+		}
+	}
+
+	const transfer = await Transfer.create({
+		user: userId,
 		amount,
 		upi,
 	});
+
+	const user = await User.findOne(userId);
 
 	return res.status(201).json(new ApiResponse(200, transfer, "Withdrawal Request Initiated"));
 });
@@ -87,7 +130,7 @@ exports.getSingleTransfer = catchAsyncErrors(async (req, res) => {
 });
 
 exports.processRequest = catchAsyncErrors(async (req, res) => {
-	const { transferId, action, amount } = req.body;
+	const { transferId, action, amount, transactionId } = req.body;
 
 	const transfer = await Transfer.findById(transferId);
 
@@ -98,20 +141,50 @@ exports.processRequest = catchAsyncErrors(async (req, res) => {
 	if (!action) {
 		transfer.status = "rejected";
 		await transfer.save();
-		return res.status(201).json(new ApiResponse(200, transferdata, "Transfer Request Rejected!"));
+		return res.status(201).json(new ApiResponse(200, {}, "Transfer Request Rejected!"));
 	}
 
 	const user = await User.findById(transfer.user);
-
-	transfer.status = "accepted";
-	await transfer.save();
-
 	if (!user) {
-		return res.status(201).json(new ApiResponse(200, transferdata, "Transfer Request Rejected because Bank Details not found!"));
+		throw new ApiError(404, "No user found");
 	}
 
-	user.balance = user.balance - amount;
+	transfer.status = "accepted";
+	transfer.transactionId = transactionId;
+	await transfer.save();
 
+	user.amountWithdrawn += amount;
+	await updateUserStatement(user._id, amount, transfer._id, `${user.firstName} ${user.lastName}`);
+	await user.save();
+
+	return res.status(201).json(new ApiResponse(200, transfer, "Success"));
+});
+
+exports.processAwardRequest = catchAsyncErrors(async (req, res) => {
+	const { transferId, action, amount, award, transactionId } = req.body;
+
+	const transfer = await Transfer.findById(transferId);
+
+	if (!transfer) {
+		throw new ApiError(404, "No transfer request found");
+	}
+
+	if (!action) {
+		transfer.status = "rejected";
+		await transfer.save();
+		return res.status(201).json(new ApiResponse(200, {}, "Transfer Request Rejected!"));
+	}
+
+	const user = await User.findById(transfer.user);
+	if (!user) {
+		throw new ApiError(404, "No user found");
+	}
+
+	transfer.status = "accepted";
+	transfer.transactionId = transactionId;
+	await transfer.save();
+	// user.amountWithdrawn += amount;
+	await updateAwardStatement(user._id, amount, { award, transfer });
 	await user.save();
 
 	return res.status(201).json(new ApiResponse(200, transfer, "Success"));

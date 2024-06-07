@@ -5,6 +5,7 @@ const { ApiError } = require("../utils/ApiError.js");
 const { ApiResponse } = require("../utils/ApiResponse.js");
 const { catchAsyncErrors } = require("../middlewares/catchAsyncErrors.js");
 const User = require("../models/user.model.js");
+const { updateStatement } = require("./statement.controller.js");
 // const { sendRegistrationConfirmation } = require("../utils/Nodemailer.js");
 require("dotenv").config();
 
@@ -82,10 +83,6 @@ const updatePlan = async (req, res, next) => {
 	try {
 		const { plan } = req.body;
 		const userId = req.user._id;
-		// console.log("***************************************************************");
-		// console.log(plan, userId);
-		// console.log("***************************************************************");
-		// Validation
 		if (!plan || !userId) {
 			return res.status(400).json({ success: false, message: "Missing required fields." });
 		}
@@ -103,12 +100,15 @@ const updatePlan = async (req, res, next) => {
 		if (!validPlans.includes(plan)) {
 			return res.status(400).json({ success: false, message: "Invalid plan." });
 		}
-		// console.log("****************************************************");
-		// console.log("plan: " + plan);
-		// Update user plan
 		user.plan = plan;
 		// Save the updated user
 		await user.save();
+
+		try {
+			await updateStatement(user._id);
+		} catch (error) {
+			console.error(error);
+		}
 
 		return res.status(200).json({ success: true, message: "Plan updated successfully." });
 	} catch (error) {
@@ -118,7 +118,7 @@ const updatePlan = async (req, res, next) => {
 };
 
 const transferToBank = catchAsyncErrors(async (req, res) => {
-	const { accountNumber, ifscCode, accountHolderName, amount, bankName, purpose } = req.body;
+	const { accountNumber, ifscCode, accountHolderName, amount, bankName } = req.body;
 	const payload = {
 		account: {
 			account_number: accountNumber,
