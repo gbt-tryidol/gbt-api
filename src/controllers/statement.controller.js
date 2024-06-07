@@ -1,5 +1,6 @@
 // const User = require("../models/user.model.js");
 const Statement = require("../models/statement.model.js");
+const User = require("../models/user.model.js");
 const { ApiError } = require("../utils/ApiError.js");
 const { ApiResponse } = require("../utils/ApiResponse.js");
 const { catchAsyncErrors } = require("../middlewares/catchAsyncErrors.js");
@@ -28,13 +29,14 @@ const generateRandomCode = () => {
 	return code;
 };
 
-exports.updateUserStatement = catchAsyncErrors(async (userid, amount, username) => {
+exports.updateUserStatement = catchAsyncErrors(async (userid, amount, transferId, username) => {
 	const statement = await Statement.create({
 		orderId: "ID-" + generateRandomCode() + new Date().getTime(),
 		amount,
 		type: "debited",
 		user: userid,
 		details: `${amount} withdrwan by ${username}`,
+		transfer: transferId,
 		user: userid,
 	});
 	if (!statement) {
@@ -42,15 +44,20 @@ exports.updateUserStatement = catchAsyncErrors(async (userid, amount, username) 
 	}
 });
 
-exports.updateAwardStatement = catchAsyncErrors(async (userid, amount, award, username) => {
+exports.updateAwardStatement = catchAsyncErrors(async (userid, amount, data) => {
+	console.log("username = ", data.transfer);
+	const user = await User.findById(userid);
+	if (!user) {
+		throw new ApiError(404, "No user found");
+	}
 	const statement = await Statement.create({
 		orderId: "ID-" + generateRandomCode() + new Date().getTime(),
 		amount,
-		award,
+		award: data.award,
 		type: "debited",
 		user: userid,
-		details: `${award} is approved`,
-		user: userid,
+		details: `${user.firstName} ${user.lastName} is awarded ${data.award}`,
+		transfer: data.transfer._id,
 	});
 
 	if (!statement) {
@@ -59,7 +66,7 @@ exports.updateAwardStatement = catchAsyncErrors(async (userid, amount, award, us
 });
 
 exports.getStatements = catchAsyncErrors(async (req, res) => {
-	const statements = await Statement.find().populate("user");
+	const statements = await Statement.find().populate("user transfer");
 	if (!statements || statements.length === 0) {
 		throw new ApiError(404, "Statement not found");
 	}

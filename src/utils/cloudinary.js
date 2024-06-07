@@ -4,9 +4,9 @@ const fs = require("fs");
 const cloudinary = cloud.v2;
 
 cloudinary.config({
-	cloud_name: "dqmf9ciah",
-	api_key: "174674496974711",
-	api_secret: "OIbN_uKEnQRxr15K7X-S3SaDpzk",
+	cloud_name: "dkebrpusv",
+	api_key: "879664742748191",
+	api_secret: "bn9tttgjc8XAVsbjzYD6RjKsYas",
 });
 
 const uploadOnCloudinary = async (localFilePath) => {
@@ -28,30 +28,30 @@ const uploadOnCloudinary = async (localFilePath) => {
 };
 
 const updateOnCloudinary = async (localFilePath, previousPublicId = null) => {
-    try {
-        if (!localFilePath) return null;
+	try {
+		if (!localFilePath) return null;
 
-        // Upload the new file to Cloudinary
-        const newResponse = await cloudinary.uploader.upload(localFilePath, {
-            resource_type: "auto",
-        });
+		// Upload the new file to Cloudinary
+		const newResponse = await cloudinary.uploader.upload(localFilePath, {
+			resource_type: "auto",
+		});
 
-        // If there was a previously saved image, destroy it on Cloudinary
-        if (previousPublicId) {
-            await cloudinary.uploader.destroy(previousPublicId);
-        }
+		// If there was a previously saved image, destroy it on Cloudinary
+		if (previousPublicId) {
+			await cloudinary.uploader.destroy(previousPublicId);
+		}
 
-        // Remove the locally saved temporary file
-        fs.unlinkSync(localFilePath);
+		// Remove the locally saved temporary file
+		fs.unlinkSync(localFilePath);
 
-        return newResponse;
-    } catch (error) {
-        console.error("Error updating image on Cloudinary:", error);
+		return newResponse;
+	} catch (error) {
+		console.error("Error updating image on Cloudinary:", error);
 
-        // Remove the locally saved temporary file as the upload operation failed
-        fs.unlinkSync(localFilePath);
+		// Remove the locally saved temporary file as the upload operation failed
+		fs.unlinkSync(localFilePath);
 
-        return null;
-    }
+		return null;
+	}
 };
-module.exports = { uploadOnCloudinary };
+module.exports = { uploadOnCloudinary, updateOnCloudinary };

@@ -154,7 +154,7 @@ exports.processRequest = catchAsyncErrors(async (req, res) => {
 	await transfer.save();
 
 	user.amountWithdrawn += amount;
-	await updateUserStatement(user._id, amount, `${user.firstName} ${user.lastName}`);
+	await updateUserStatement(user._id, amount, transfer._id, `${user.firstName} ${user.lastName}`);
 	await user.save();
 
 	return res.status(201).json(new ApiResponse(200, transfer, "Success"));
@@ -183,9 +183,8 @@ exports.processAwardRequest = catchAsyncErrors(async (req, res) => {
 	transfer.status = "accepted";
 	transfer.transactionId = transactionId;
 	await transfer.save();
-	console.log(user);
 	// user.amountWithdrawn += amount;
-	await updateAwardStatement(user._id, amount, award, `${user.firstName} ${user.lastName}`);
+	await updateAwardStatement(user._id, amount, { award, transfer });
 	await user.save();
 
 	return res.status(201).json(new ApiResponse(200, transfer, "Success"));

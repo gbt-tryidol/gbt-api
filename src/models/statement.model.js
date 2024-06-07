@@ -30,6 +30,10 @@ const statementSchema = new Schema(
 			type: Schema.Types.ObjectId,
 			ref: "user",
 		},
+		transfer: {
+			type: Schema.Types.ObjectId,
+			ref: "transfer",
+		},
 	},
 	{ timestamps: true }
 );

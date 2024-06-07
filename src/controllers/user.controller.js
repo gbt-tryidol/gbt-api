@@ -10,7 +10,7 @@ const crypto = require("crypto");
 const fs = require("fs");
 
 const nodemailer = require("nodemailer");
-const { uploadOnCloudinary } = require("../utils/cloudinary.js");
+const { uploadOnCloudinary, updateOnCloudinary } = require("../utils/cloudinary.js");
 const MailSender = require("../utils/Nodemailer.js");
 
 const transporter = nodemailer.createTransport({
@@ -23,109 +23,105 @@ const transporter = nodemailer.createTransport({
 
 // ?? Admin Register Handler
 exports.registerUser = catchAsyncErrors(async (req, res) => {
-	try {
-		const { firstName, lastName, email, contact, city, postalCode, state, password, role, referralCode } = req.body;
+	const { firstName, lastName, email, contact, city, postalCode, state, password, role, referralCode } = req.body;
 
-		if (!firstName || !lastName || !email || !contact || !city || !postalCode || !state || !password) {
-			throw new ApiError(400, "All fields are required");
-		}
-		if (req.files["avatar"] === undefined) {
-			throw new ApiError(400, "Avatar file is required");
-		}
-		if (req.files["aadhar"] === undefined) {
-			throw new ApiError(400, "Aadhar file is required");
-		}
-		if (req.files["pan"] === undefined) {
-			throw new ApiError(400, "Pan file is required");
-		}
-
-		const avatar = req?.files["avatar"][0];
-		const aadhar = req?.files["aadhar"][0];
-		const pan = req?.files["pan"][0];
-
-		const uploadedAvatar = await uploadOnCloudinary(avatar?.path);
-		const uploadedAadhar = await uploadOnCloudinary(aadhar?.path);
-		const uploadedPan = await uploadOnCloudinary(pan?.path);
-		console.log(uploadedAvatar, uploadedAadhar, uploadedPan);
-		if (!uploadedAvatar) {
-			throw new ApiError(400, "Avatar file is required");
-		}
-		if (!uploadedAadhar) {
-			throw new ApiError(400, "Aadhar Card is required");
-		}
-		if (!uploadedPan) {
-			throw new ApiError(400, "Pan Card is required");
-		}
-
-		const existedUser = await User.findOne({
-			$or: [{ email }, { contact }],
-		});
-		console.log(existedUser);
-		if (existedUser) {
-			return res.status(404).json({ message: "user already exists" });
-		}
-		console.log(374477);
-
-		const user = await User.create({
-			firstName,
-			lastName,
-			email,
-			contact,
-			password,
-			role: role || "user",
-			city,
-			postalCode,
-			state: state,
-			aadharCard: uploadedAadhar.url,
-			panCard: uploadedPan.url,
-			avatar: uploadedAvatar.url,
-			track: {
-				code: referralCode,
-				step: 1,
-			},
-		});
-
-		if (!user) {
-			fs.unlinkSync(`./public/uploads/${aadhar}`);
-			fs.unlinkSync(`./public/uploads/${pan}`);
-			fs.unlinkSync(`./public/uploads/${avatar}`);
-			throw new ApiError(500, "Something went wrong while registering the user! Maybe an Internet Connection issue");
-		}
-
-		const code = await generateReferralCode(user._id.toString());
-
-		user.referralCode = code;
-
-		// const mail = {
-		// 	name: user.firstName + " " + user.lastName,
-		// 	email: user.email,
-		// };
-
-		// await sendRegistrationMail(mail);
-
-		await user.save();
-
-		const createdUser = await User.findById(user._id).select("-password");
-
-		if (!createdUser) {
-			throw new ApiError(500, "Something went wrong while registering the user! Maybe an Internet Connection issue");
-		}
-
-		return res.status(201).json(new ApiResponse(200, { createdUser, referralCode }, "User registered"));
-	} catch (error) {
-		console.log(error);
+	if (!firstName || !lastName || !email || !contact || !city || !postalCode || !state || !password) {
+		throw new ApiError(400, "All fields are required");
 	}
-});
+	if (req.files["avatar"] === undefined) {
+		throw new ApiError(404, "Avatar file is required");
+	}
+	if (req.files["aadhar"] === undefined) {
+		throw new ApiError(404, "Aadhar file is required");
+	}
+	if (req.files["pan"] === undefined) {
+		throw new ApiError(404, "Pan file is required");
+	}
 
-exports.updateImages = catchAsyncErrors(async (req, res) => {
-	const user = await User.findById(req?.user?._id);
+	const avatar = req?.files["avatar"][0];
+	const aadhar = req?.files["aadhar"][0];
+	const pan = req?.files["pan"][0];
+
+	const uploadedAvatar = await uploadOnCloudinary(avatar?.path);
+	const uploadedAadhar = await uploadOnCloudinary(aadhar?.path);
+	const uploadedPan = await uploadOnCloudinary(pan?.path);
+	console.log(uploadedAvatar, uploadedAadhar, uploadedPan);
+	if (!uploadedAvatar) {
+		return res.status(404).json({ message: "avatar is required" });
+	}
+	if (!uploadedAadhar) {
+		return res.status(404).json({ message: "aadhar is required" });
+	}
+	if (!uploadedPan) {
+		return res.status(404).json({ message: "pan card is required" });
+	}
+
+	const existedUser = await User.findOne({
+		$or: [{ email }, { contact }],
+	});
+	console.log(existedUser);
+	if (existedUser) {
+		return res.status(404).json({ message: "user already exists" });
+	}
+	console.log(374477);
+
+	const user = await User.create({
+		firstName,
+		lastName,
+		email,
+		contact,
+		password,
+		role: role || "user",
+		city,
+		postalCode,
+		state: state,
+		aadharCard: uploadedAadhar.url,
+		panCard: uploadedPan.url,
+		avatar: uploadedAvatar.url,
+		track: {
+			code: referralCode,
+			step: 1,
+		},
+	});
+
 	if (!user) {
 		fs.unlinkSync(`./public/uploads/${aadhar}`);
 		fs.unlinkSync(`./public/uploads/${pan}`);
 		fs.unlinkSync(`./public/uploads/${avatar}`);
-		throw new ApiError(409, "User with the same email or contact already exists");
+		throw new ApiError(500, "Something went wrong while registering the user! Maybe an Internet Connection issue");
 	}
 
+	const code = await generateReferralCode(user._id.toString());
+
+	user.referralCode = code;
+
+	// const mail = {
+	// 	name: user.firstName + " " + user.lastName,
+	// 	email: user.email,
+	// };
+
+	// await sendRegistrationMail(mail);
+
+	await user.save();
+
+	const createdUser = await User.findById(user._id).select("-password");
+
+	if (!createdUser) {
+		throw new ApiError(500, "Something went wrong while registering the user! Maybe an Internet Connection issue");
+	}
+
+	return res.status(201).json(new ApiResponse(200, { createdUser, referralCode }, "User registered"));
+});
+
+exports.updateImages = catchAsyncErrors(async (req, res) => {
+	const user = await User.findById(req.user._id);
+	if (!user) {
+		if (req?.files?.aadhar) fs.unlinkSync(req?.files?.aadhar[0]?.path);
+		if (req?.files?.pan) fs.unlinkSync(req?.files?.pan[0]?.path);
+		if (req?.files?.avatar) fs.unlinkSync(req?.files?.avatar[0]?.path);
+		throw new ApiError(409, "user not find");
+	}
+	console.log(req.files);
 	const avatar = req?.files["avatar"][0];
 	const aadhar = req?.files["aadhar"][0];
 	const pan = req?.files["pan"][0];
